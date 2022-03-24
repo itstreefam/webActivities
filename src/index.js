@@ -1,7 +1,11 @@
+const tabActivities = require('./tabActivities');
+var tabActivities_ = new tabActivities();
+var lastTabID = 0;
+
 console.log('This is background service worker - edit me!');
 
-let lastTabID = 0;
-
+// on install, if there is only chrome://extensions/ in the browser window, then make a new tab
+// otherwise, open a new browser window
 chrome.runtime.onInstalled.addListener(function (details) {
 	if (details.reason === 'install') {
 		chrome.tabs.query({ currentWindow: true }, function (tabs) {
@@ -25,6 +29,12 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 chrome.storage.onChanged.addListener(function (changes, namespace) {
 	for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
 		console.log(key, oldValue, newValue);
+
+        // add edge to graph
+        if(typeof newValue !== 'undefined' && newValue !== null){
+            tabActivities_.addUrlConnection(newValue.prevUrl, newValue.curUrl, newValue.prevTabId);
+        }
+        console.log(tabActivities_.getGraph());
 	}
 });
 
