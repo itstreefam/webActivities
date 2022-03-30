@@ -31,12 +31,19 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 		console.log(key, oldValue, newValue);
 
         // add edge to graph
-        if(typeof newValue !== 'undefined' && newValue !== null){
-            tabActivities_.addUrlConnection(newValue.prevUrl, newValue.curUrl, newValue.prevTabId);
-        }
-        console.log(tabActivities_.getGraph());
+        // if(typeof newValue !== 'undefined' && newValue !== null){
+        //     tabActivities_.addUrlConnection(newValue.prevUrl, newValue.curUrl, newValue.prevTabId);
+        // }
+        //console.log(tabActivities_.getGraph());
 	}
 });
+
+function timeStamp() {
+	var time = Date.now || function() {
+		return +new Date;
+	};
+	return time();
+}
 
 // Sets a key and stores its value into the storage
 function setStorageKey(key, value) {
@@ -54,7 +61,7 @@ function docReferrer() {
 	return document.referrer;
 }
 
-function new_tab_checker(id, onGetLastTabId) {
+function newTabChecker(id, onGetLastTabId) {
 	chrome.tabs.query({ currentWindow: true }, function (tabs) {
 		for (var i = 0; i < tabs.length; i++) {
 			if (tabs[i].id == id) {
@@ -81,20 +88,20 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 						// open hyperlink in new tab or omnibox search
 						if (lastTabID === tabId) {
 							// hyperlink opened in new tab and new tab is active tab
-							new_tab_checker(tabId, function (tab) {
+							newTabChecker(tabId, function (tab) {
 								if (tab.openerTabId) {
 									getStorageKeyValue(tab.openerTabId.toString(), function (v) {
 										if (typeof v !== 'undefined') {
-											setStorageKey(tabId.toString(), { "curUrl": tab.url, "prevUrl": v.curUrl, "prevTabId": tab.openerTabId });
+											setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": v.curUrl, "prevTabId": tab.openerTabId, "time": new Date(timeStamp()).toLocaleString('en-US') });
 										}
 										else {
 											// empty new tab or omnibox search
-											setStorageKey(tabId.toString(), { "curUrl": tab.url, "prevUrl": "", "prevTabId": tabId });
+											setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": "", "prevTabId": tabId, "time": new Date(timeStamp()).toLocaleString('en-US') });
 										}
 									});
 								}
 								else {
-									setStorageKey(tabId.toString(), { "curUrl": tab.url, "prevUrl": "", "prevTabId": tabId });
+									setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": "", "prevTabId": tabId, "time": new Date(timeStamp()).toLocaleString('en-US') });
 								}
 							});
 						}
@@ -102,7 +109,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 							// hyperlink opened in new tab but new tab is not active tab
 							getStorageKeyValue(lastTabID.toString(), function (v) {
 								if (typeof v !== 'undefined') {
-									setStorageKey(tabId.toString(), { "curUrl": tab.url, "prevUrl": v.curUrl, "prevTabId": lastTabID });
+									setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": v.curUrl, "prevTabId": lastTabID, "time": new Date(timeStamp()).toLocaleString('en-US') });
 								}
 							});
 						}
@@ -112,9 +119,20 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 						value.prevUrl = value.curUrl;
 						value.curUrl = tab.url;
 						value.prevTabId = tab.id;
+						value.time = new Date(timeStamp()).toLocaleString('en-US');
 						setStorageKey(tabId.toString(), value);
 					}
 				});
 			});
 	}
 });
+
+var focused = true;
+setInterval(function() {
+    chrome.windows.getLastFocused(function(window) {
+		if(focused && !window.focused) {
+			console.log("window unfocused (can export json data to codeHistories repo)");
+		}
+        focused = window.focused;
+    });
+}, 1000);
