@@ -1,6 +1,7 @@
 const tabActivities = require('./tabActivities');
 var tabActivities_ = new tabActivities();
 var lastTabID = 0;
+var tableData = [];
 
 console.log('This is background service worker - edit me!');
 
@@ -19,6 +20,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 	}
 	else {
 		chrome.storage.local.clear();
+		tableData = [];
 	};
 });
 
@@ -29,12 +31,10 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 chrome.storage.onChanged.addListener(function (changes, namespace) {
 	for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
 		console.log(key, oldValue, newValue);
-
-        // add edge to graph
-        // if(typeof newValue !== 'undefined' && newValue !== null){
-        //     tabActivities_.addUrlConnection(newValue.prevUrl, newValue.curUrl, newValue.prevTabId);
-        // }
-        //console.log(tabActivities_.getGraph());
+		
+		if(parseInt(key) !== NaN) {
+			tableData.push(newValue);
+		}
 	}
 });
 
@@ -132,7 +132,21 @@ setInterval(function() {
     chrome.windows.getLastFocused(function(window) {
 		if(focused && !window.focused) {
 			console.log("window unfocused (can export json data to codeHistories repo)");
+			var result = JSON.stringify(tableData, undefined, 4);
+			console.log(result);
+
+			// Save as file
+			var url = 'data:application/json;base64,' + btoa(result);
+			chrome.downloads.download({
+				url: url,
+				filename: 'webActivities.json',
+				// saveAs: true
+			});
 		}
         focused = window.focused;
     });
 }, 1000);
+
+chrome.downloads.onChanged.addListener(function(delta) {
+	console.log(delta);
+});

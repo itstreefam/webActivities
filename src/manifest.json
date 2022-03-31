@@ -14,7 +14,8 @@
         "tabs",
         "activeTab",
         "scripting",
-		"history"
+		"history",
+        "downloads"
     ],
 	"host_permissions": [
 	  "*://*/*"
