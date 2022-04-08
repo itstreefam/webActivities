@@ -15,7 +15,8 @@
         "activeTab",
         "scripting",
 		"history",
-        "downloads"
+        "downloads",
+        "nativeMessaging"
     ],
 	"host_permissions": [
 	  "*://*/*"

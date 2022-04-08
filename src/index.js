@@ -131,22 +131,16 @@ var focused = true;
 setInterval(function() {
     chrome.windows.getLastFocused(function(window) {
 		if(focused && !window.focused) {
-			console.log("window unfocused (can export json data to codeHistories repo)");
+			console.log("window unfocused (exporting data to user's working project folder)");
 			var result = JSON.stringify(tableData, undefined, 4);
-			console.log(result);
-
-			// Save as file
-			var url = 'data:application/json;base64,' + btoa(result);
-			chrome.downloads.download({
-				url: url,
-				filename: 'webActivities.json',
-				// saveAs: true
+			chrome.runtime.sendNativeMessage("savedat", { text: result }, function(response) {
+				if (chrome.runtime.lastError) {
+					console.log("ERROR: " + chrome.runtime.lastError.message);
+				} else {
+					sendResponse({farewell: ParseJSON(response)});
+				}
 			});
 		}
         focused = window.focused;
     });
 }, 1000);
-
-chrome.downloads.onChanged.addListener(function(delta) {
-	console.log(delta);
-});
