@@ -1,7 +1,7 @@
 {
     "name": "webactivities",
     "description": "An extension to track web activites",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "homepage": "http://chrome.google.com/webstore",
     "author": "ENTER YOUR NAME HERE",
     "repository": {
@@ -45,8 +45,5 @@
                 "src": "./src/**/*.js"
             }
         ]
-    },
-    "dependencies": {
-        "graphology": "^0.24.1"
     }
 }

@@ -1,5 +1,3 @@
-const tabActivities = require('./tabActivities');
-var tabActivities_ = new tabActivities();
 var lastTabID = 0;
 var tableData = [];
 
@@ -127,12 +125,21 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 	}
 });
 
+// // background.js
+// chrome.action.onClicked.addListener((tab) => {
+// 	chrome.scripting.executeScript({
+// 		target: {tabId: tab.id},
+// 		files: ['content.js']
+// 	});
+// });
+
 var focused = true;
 setInterval(function() {
     chrome.windows.getLastFocused(function(window) {
 		if(focused && !window.focused) {
 			console.log("window unfocused (exporting data to user's working project folder)");
 			var result = JSON.stringify(tableData, undefined, 4);
+			console.log(result);
 			chrome.runtime.sendNativeMessage("savedat", { text: result }, function(response) {
 				if (chrome.runtime.lastError) {
 					console.log("ERROR: " + chrome.runtime.lastError.message);
