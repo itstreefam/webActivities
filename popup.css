@@ -1,0 +1,50 @@
+/* turn on overflow for the window */
+html {
+    min-width: 25em;
+    min-height: 25em;
+    overflow-x: hidden;
+    background: gray;
+}
+
+p{
+    font-size: 2em;
+    font-family: "Arial";
+    text-align: center;
+    margin-bottom: 0%;
+}
+
+.url{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+input {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 64px;
+    padding-left: 33px;
+    margin: 0;
+    border-radius: 16px;
+    background: radial-gradient(circle 12px, white 100%, transparent calc(100% + 1px)) rgb(153, 28, 28) -16px;
+    transition: 0.3s ease-in-out;
+}
+  
+input::before {
+    content: "OFF";
+    font: bold 12px/32px Verdana;
+    color: white;
+    text-shadow: 0 1px black;
+}
+  
+:checked {
+    padding-left: 8px;
+    background-color: green;
+    background-position: 16px;
+}
+  
+:checked::before {
+    content: "ON";
+}

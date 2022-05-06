@@ -28,7 +28,7 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {
 	for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
-		console.log(key, oldValue, newValue);
+		// console.log(key, oldValue, newValue);
 		
 		if(parseInt(key) !== NaN) {
 			tableData.push(newValue);
@@ -90,16 +90,16 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 								if (tab.openerTabId) {
 									getStorageKeyValue(tab.openerTabId.toString(), function (v) {
 										if (typeof v !== 'undefined') {
-											setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": v.curUrl, "prevTabId": tab.openerTabId, "time": new Date(timeStamp()).toLocaleString('en-US') });
+											setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": v.curUrl, "prevTabId": tab.openerTabId, "recording": true, "time": new Date(timeStamp()).toLocaleString('en-US') });
 										}
 										else {
 											// empty new tab or omnibox search
-											setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": "", "prevTabId": tabId, "time": new Date(timeStamp()).toLocaleString('en-US') });
+											setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": "", "prevTabId": tabId, "recording": true, "time": new Date(timeStamp()).toLocaleString('en-US') });
 										}
 									});
 								}
 								else {
-									setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": "", "prevTabId": tabId, "time": new Date(timeStamp()).toLocaleString('en-US') });
+									setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": "", "prevTabId": tabId, "recording": true, "time": new Date(timeStamp()).toLocaleString('en-US') });
 								}
 							});
 						}
@@ -107,7 +107,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 							// hyperlink opened in new tab but new tab is not active tab
 							getStorageKeyValue(lastTabID.toString(), function (v) {
 								if (typeof v !== 'undefined') {
-									setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": v.curUrl, "prevTabId": lastTabID, "time": new Date(timeStamp()).toLocaleString('en-US') });
+									setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": v.curUrl, "prevTabId": lastTabID, "recording": true, "time": new Date(timeStamp()).toLocaleString('en-US') });
 								}
 							});
 						}
@@ -125,21 +125,12 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 	}
 });
 
-// // background.js
-// chrome.action.onClicked.addListener((tab) => {
-// 	chrome.scripting.executeScript({
-// 		target: {tabId: tab.id},
-// 		files: ['content.js']
-// 	});
-// });
-
 var focused = true;
 setInterval(function() {
     chrome.windows.getLastFocused(function(window) {
 		if(focused && !window.focused) {
 			console.log("window unfocused (exporting data to user's working project folder)");
 			var result = JSON.stringify(tableData, undefined, 4);
-			console.log(result);
 			chrome.runtime.sendNativeMessage("savedat", { text: result }, function(response) {
 				if (chrome.runtime.lastError) {
 					console.log("ERROR: " + chrome.runtime.lastError.message);
