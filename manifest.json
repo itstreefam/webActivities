@@ -15,7 +15,8 @@
         "scripting",
 		"history",
         "downloads",
-        "nativeMessaging"
+        "nativeMessaging",
+        "unlimitedStorage"
     ],
 	"host_permissions": [
 	  "*://*/*"

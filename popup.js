@@ -56,7 +56,13 @@ chrome.tabs.query({ currentWindow: true }, function (tabs) {
     getStorageKeyValue(id, function (value) {
       if (typeof value === 'undefined') {
         toggle.checked = true;
-        setStorageKey(id.toString(), { "curUrl": url, "curTabId": id, "prevUrl": "", "prevTabId": id, "recording": toggle.checked, "time": new Date(timeStamp()).toLocaleString('en-US') });
+        setStorageKey(id.toString(), {  "curUrl": url, 
+                                        "curTabId": id, 
+                                        "prevUrl": "", 
+                                        "prevTabId": id, 
+                                        "recording": toggle.checked,
+                                        "action": "add opened tab that is not in storage",
+                                        "time": new Date(timeStamp()).toLocaleString('en-US') });
       }
       else{
         toggle.checked = value.recording;

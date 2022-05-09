@@ -26,12 +26,40 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 	lastTabID = activeInfo.tabId;
 });
 
+function objCompare(obj1, obj2) {
+	if(typeof obj1 !== 'undefined' && typeof obj2 !== 'undefined') {
+		keys1 = Object.keys(obj1);
+		keys2 = Object.keys(obj2);
+		// delete the time key
+		keys1.splice(keys1.indexOf('time'), 1);
+		keys2.splice(keys2.indexOf('time'), 1);
+
+		if(keys1.length !== keys2.length) {
+			return false;
+		}
+
+		for(let i = 0; i < keys1.length; i++) {
+			if(obj1[keys1[i]] !== obj2[keys1[i]]) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+}
+
 chrome.storage.onChanged.addListener(function (changes, namespace) {
 	for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
 		// console.log(key, oldValue, newValue);
 		
-		if(parseInt(key) !== NaN) {
-			tableData.push(newValue);
+		// only push the data to the table if oldValue object is different from newValue object
+		if(!objCompare(oldValue, newValue)) {
+			// if newValue.recording is true
+			if(typeof newValue.recording !== 'undefined') {
+				if(newValue.recording) {
+					tableData.push(newValue);
+				}
+			}
 		}
 	}
 });
@@ -90,16 +118,34 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 								if (tab.openerTabId) {
 									getStorageKeyValue(tab.openerTabId.toString(), function (v) {
 										if (typeof v !== 'undefined') {
-											setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": v.curUrl, "prevTabId": tab.openerTabId, "recording": true, "time": new Date(timeStamp()).toLocaleString('en-US') });
+											setStorageKey(tabId.toString(), { 	"curUrl": tab.url, 
+																				"curTabId": tabId, 
+																				"prevUrl": v.curUrl, 
+																				"prevTabId": tab.openerTabId, 
+																				"recording": true,
+																				"action": "hyperlink opened in new tab and new tab is active tab",
+																				"time": new Date(timeStamp()).toLocaleString('en-US') });
 										}
 										else {
 											// empty new tab or omnibox search
-											setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": "", "prevTabId": tabId, "recording": true, "time": new Date(timeStamp()).toLocaleString('en-US') });
+											setStorageKey(tabId.toString(), {	"curUrl": tab.url, 
+																				"curTabId": tabId, 
+																				"prevUrl": "", 
+																				"prevTabId": tabId, 
+																				"recording": true,
+																				"action": "empty new tab or omnibox search",
+																				"time": new Date(timeStamp()).toLocaleString('en-US') });
 										}
 									});
 								}
 								else {
-									setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": "", "prevTabId": tabId, "recording": true, "time": new Date(timeStamp()).toLocaleString('en-US') });
+									setStorageKey(tabId.toString(), { 	"curUrl": tab.url, 
+																		"curTabId": tabId, 
+																		"prevUrl": "", 
+																		"prevTabId": tabId, 
+																		"recording": true,
+																		"action": "waku wak",
+																		"time": new Date(timeStamp()).toLocaleString('en-US') });
 								}
 							});
 						}
@@ -107,7 +153,13 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 							// hyperlink opened in new tab but new tab is not active tab
 							getStorageKeyValue(lastTabID.toString(), function (v) {
 								if (typeof v !== 'undefined') {
-									setStorageKey(tabId.toString(), { "curUrl": tab.url, "curTabId": tabId, "prevUrl": v.curUrl, "prevTabId": lastTabID, "recording": true, "time": new Date(timeStamp()).toLocaleString('en-US') });
+									setStorageKey(tabId.toString(),	{	"curUrl": tab.url, 
+																		"curTabId": tabId, 
+																		"prevUrl": v.curUrl, 
+																		"prevTabId": lastTabID, 
+																		"recording": true,
+																		"action": "hyperlink opened in new tab but new tab is not active tab",
+																		"time": new Date(timeStamp()).toLocaleString('en-US') });
 								}
 							});
 						}
@@ -117,6 +169,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 						value.prevUrl = value.curUrl;
 						value.curUrl = tab.url;
 						value.prevTabId = tab.id;
+						value.action = "navigate between urls in a same tab";
 						value.time = new Date(timeStamp()).toLocaleString('en-US');
 						setStorageKey(tabId.toString(), value);
 					}
