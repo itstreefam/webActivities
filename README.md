@@ -4,6 +4,8 @@ A Google Chrome extension that aims to capture the information needed to generat
 
 ## Demo
 
+https://user-images.githubusercontent.com/44308446/172105979-db968538-7b7b-4aff-9f90-aee86a1c672d.mp4
+
 ## Requirements
 
 * Python version 2 or 3 to run background script that transfers web search data to a local user directory
