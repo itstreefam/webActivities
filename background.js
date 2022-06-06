@@ -27,13 +27,13 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 chrome.storage.onChanged.addListener(function (changes, namespace) {
 	for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
 		// console.log(key, oldValue, newValue);
-		
+
 		// only push the data to the table if oldValue object is different from newValue object
 		// to avoid when the page loads more content as the scrollbar is scrolled down
-		if(!objCompare(oldValue, newValue)) {
+		if (!objCompare(oldValue, newValue)) {
 			// if newValue.recording is true
-			if(typeof newValue.recording !== 'undefined') {
-				if(newValue.recording) {
+			if (typeof newValue.recording !== 'undefined') {
+				if (newValue.recording) {
 					tableData.push(newValue);
 				}
 			}
@@ -42,19 +42,19 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 });
 
 function objCompare(obj1, obj2) {
-	if(typeof obj1 !== 'undefined' && typeof obj2 !== 'undefined') {
+	if (typeof obj1 !== 'undefined' && typeof obj2 !== 'undefined') {
 		keys1 = Object.keys(obj1);
 		keys2 = Object.keys(obj2);
 		// delete the time key
 		keys1.splice(keys1.indexOf('time'), 1);
 		keys2.splice(keys2.indexOf('time'), 1);
 
-		if(keys1.length !== keys2.length) {
+		if (keys1.length !== keys2.length) {
 			return false;
 		}
 
-		for(let i = 0; i < keys1.length; i++) {
-			if(obj1[keys1[i]] !== obj2[keys1[i]]) {
+		for (let i = 0; i < keys1.length; i++) {
+			if (obj1[keys1[i]] !== obj2[keys1[i]]) {
 				return false;
 			}
 		}
@@ -64,7 +64,7 @@ function objCompare(obj1, obj2) {
 }
 
 function timeStamp() {
-	var time = Date.now || function() {
+	var time = Date.now || function () {
 		return +new Date;
 	};
 	return time();
@@ -99,9 +99,9 @@ function newTabChecker(id, onGetLastTabId) {
 chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 	if (changeInfo.status === 'complete') {
 		chrome.scripting.executeScript({
-				target: { tabId: tabId },
-				func: docReferrer,
-			},
+			target: { tabId: tabId },
+			func: docReferrer,
+		},
 			function (ref) {
 				var e = chrome.runtime.lastError;
 				if (e !== undefined) {
@@ -120,35 +120,41 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 										if (typeof v !== 'undefined') {
 											// if there is hyperlink redirecting, then prevUrl and prevTabId exist
 											// if simply opening a new tab, then prevUrl and prevTabId don't exist
-											setStorageKey(tabId.toString(), { 	"curUrl": tab.url, 
-																				"curTabId": tabId, 
-																				"prevUrl": ((tab.url !== "chrome://newtab/") ? v.curUrl : ""), 
-																				"prevTabId": ((tab.url !== "chrome://newtab/") ? tab.openerTabId : tabId), 
-																				"recording": true,
-																				"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-																				"time": new Date(timeStamp()).toLocaleString('en-US') });
+											setStorageKey(tabId.toString(), {
+												"curUrl": tab.url,
+												"curTabId": tabId,
+												"prevUrl": ((tab.url !== "chrome://newtab/") ? v.curUrl : ""),
+												"prevTabId": ((tab.url !== "chrome://newtab/") ? tab.openerTabId : tabId),
+												"recording": true,
+												"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+												"time": new Date(timeStamp()).toLocaleString('en-US')
+											});
 										}
 										else {
 											// this case happens when reloading the extension
-											setStorageKey(tabId.toString(), {	"curUrl": tab.url, 
-																				"curTabId": tabId, 
-																				"prevUrl": "", 
-																				"prevTabId": tabId, 
-																				"recording": true,
-																				"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-																				"time": new Date(timeStamp()).toLocaleString('en-US') });
+											setStorageKey(tabId.toString(), {
+												"curUrl": tab.url,
+												"curTabId": tabId,
+												"prevUrl": "",
+												"prevTabId": tabId,
+												"recording": true,
+												"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+												"time": new Date(timeStamp()).toLocaleString('en-US')
+											});
 										}
 									});
 								}
 								else {
 									// this case happens when extension first installs (query a new tab)
-									setStorageKey(tabId.toString(), { 	"curUrl": tab.url, 
-																		"curTabId": tabId, 
-																		"prevUrl": "", 
-																		"prevTabId": tabId, 
-																		"recording": true,
-																		"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-																		"time": new Date(timeStamp()).toLocaleString('en-US') });
+									setStorageKey(tabId.toString(), {
+										"curUrl": tab.url,
+										"curTabId": tabId,
+										"prevUrl": "",
+										"prevTabId": tabId,
+										"recording": true,
+										"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+										"time": new Date(timeStamp()).toLocaleString('en-US')
+									});
 								}
 							});
 						}
@@ -156,13 +162,15 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 							// hyperlink opened in new tab but new tab is not active tab
 							getStorageKeyValue(lastTabID.toString(), function (v) {
 								if (typeof v !== 'undefined') {
-									setStorageKey(tabId.toString(),	{	"curUrl": tab.url, 
-																		"curTabId": tabId, 
-																		"prevUrl": v.curUrl, 
-																		"prevTabId": lastTabID, 
-																		"recording": true,
-																		"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-																		"time": new Date(timeStamp()).toLocaleString('en-US') });
+									setStorageKey(tabId.toString(), {
+										"curUrl": tab.url,
+										"curTabId": tabId,
+										"prevUrl": v.curUrl,
+										"prevTabId": lastTabID,
+										"recording": true,
+										"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+										"time": new Date(timeStamp()).toLocaleString('en-US')
+									});
 								}
 							});
 						}
@@ -182,19 +190,19 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 });
 
 var focused = true;
-setInterval(function() {
-    chrome.windows.getLastFocused(function(window) {
-		if(focused && !window.focused) {
+setInterval(function () {
+	chrome.windows.getLastFocused(function (window) {
+		if (focused && !window.focused) {
 			console.log("window unfocused (exporting data to user's working project folder)");
 			var result = JSON.stringify(tableData, undefined, 4);
-			chrome.runtime.sendNativeMessage("savedat", { text: result }, function(response) {
+			chrome.runtime.sendNativeMessage("savedat", { text: result }, function (response) {
 				if (chrome.runtime.lastError) {
 					console.log("ERROR: " + chrome.runtime.lastError.message);
 				} else {
-					sendResponse({farewell: ParseJSON(response)});
+					sendResponse({ farewell: ParseJSON(response) });
 				}
 			});
 		}
-        focused = window.focused;
-    });
+		focused = window.focused;
+	});
 }, 1000);
