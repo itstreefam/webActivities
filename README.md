@@ -1,39 +1,31 @@
 # webActivities
 
-An extension to track web activites
+A Google Chrome extension that aims to capture the information needed to generate usable code histories (capturing web search activity).
 
-## Development 
+## Demo
 
-This extension was created with [Extension CLI](https://oss.mobilefirst.me/extension-cli/)!
+https://user-images.githubusercontent.com/44308446/172105979-db968538-7b7b-4aff-9f90-aee86a1c672d.mp4
 
-If you find this software helpful [star](https://github.com/MobileFirstLLC/extension-cli/) or [sponsor](https://github.com/sponsors/MobileFirstLLC) this project.
+## Requirements
 
+* Python version 2 or 3 to run background script that transfers web search data to a local user directory
 
-### Available Commands
+## Extension Settings
 
-| Commands | Description |
-| --- | --- |
-| `npm run start` | build extension, watch file changes |
-| `npm run build` | generate release version |
-| `npm run docs` | generate source code docs |
-| `npm run clean` | remove temporary files |
-| `npm run test` | run unit tests |
-| `npm run sync` | update config files |
+Clone this repository and load it on Google Chrome by visiting chrome://extensions/, turning on Developer mode, and choosing the option Load unpacked.
 
-For CLI instructions see [User Guide &rarr;](https://oss.mobilefirst.me/extension-cli/)
+Once the extension is loaded, copy and paste its ID to the placeholder in host/savedat.json. When done, double click install_host.bat to enable the system host connection for transferring the data from Google Chrome to the system host that will then write the data to a file named 'data' in an assigned user working directory.
 
-### Learn More
+The assigned user working directory should be determined beforehand by updating the variable 'user_project_directory' in host/save-url-data.py with a folder path that the user plans to perform their tasks on.
 
-**Extension Developer guides**
+## Release Notes
 
-- [Getting started with extension development](https://developer.chrome.com/extensions/getstarted)
-- Manifest configuration: [version 2](https://developer.chrome.com/extensions/manifest) - [version 3](https://developer.chrome.com/docs/extensions/mv3/intro/)
-- [Permissions reference](https://developer.chrome.com/extensions/declare_permissions)
-- [Chrome API reference](https://developer.chrome.com/docs/extensions/reference/)
+### V1
 
-**Extension Publishing Guides**
+Initial release of webActivities. Basic web activity capture in the background while the user is using Google Chrome. The data will be consistently updated as the user unfocuses from any Chrome window.
 
-- [Publishing for Chrome](https://developer.chrome.com/webstore/publish)
-- [Publishing for Edge](https://docs.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/publish-extension)
-- [Publishing for Opera addons](https://dev.opera.com/extensions/publishing-guidelines/)
-- [Publishing for Firefox](https://extensionworkshop.com/documentation/publish/submitting-an-add-on/)
+## Contact
+
+p.tri@wustl.edu
+
+**Thanks and enjoy!**

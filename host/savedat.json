@@ -4,6 +4,6 @@
     "path": "save-url-data.bat",
     "type": "stdio",
     "allowed_origins": [
-      "chrome-extension://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/"
+	  "chrome-extension://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/"
     ]
   }

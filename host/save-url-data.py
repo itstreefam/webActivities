@@ -11,7 +11,7 @@ if sys.platform == "win32":
     msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
     msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
-user_project_directory = os.path.normpath(r'C:\path\to\user\project')
+user_project_directory = os.path.normpath(r'C:\path\to\user\project\folder')
 
 try:
     # Python 3.x version

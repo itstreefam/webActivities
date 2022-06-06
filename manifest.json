@@ -5,7 +5,6 @@
     "version": "1.0.0",
     "version_name": "1.0.0",
     "manifest_version": 3,
-    "default_locale": "en",
     "minimum_chrome_version": "88",
     "permissions": [
         "storage",
@@ -16,23 +15,17 @@
         "scripting",
 		"history",
         "downloads",
-        "nativeMessaging"
+        "nativeMessaging",
+        "unlimitedStorage"
     ],
 	"host_permissions": [
 	  "*://*/*"
 	],
-    "icons": {
-        "128": "assets/img/128x128.png"
-    },
     "background": {
         "service_worker": "background.js"
     },
     "action": {
-        "default_icon": {
-            "16": "assets/img/16x16.png",
-            "24": "assets/img/24x24.png",
-            "32": "assets/img/32x32.png"
-        },
-        "default_title": "webActivities"
+        "default_title": "webActivities",
+        "default_popup": "popup.html"
     }
 }
