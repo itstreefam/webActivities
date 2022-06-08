@@ -1,0 +1,14 @@
+{
+  "name": "webactivities-local-server",
+  "version": "1.0.0",
+  "description": "Local server to communicate web url data to a user's folder",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Tri Pham",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.1"
+  }
+}

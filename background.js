@@ -195,12 +195,13 @@ setInterval(function () {
 		if (focused && !window.focused) {
 			console.log("window unfocused (exporting data to user's working project folder)");
 			var result = JSON.stringify(tableData, undefined, 4);
-			chrome.runtime.sendNativeMessage("savedat", { text: result }, function (response) {
-				if (chrome.runtime.lastError) {
-					console.log("ERROR: " + chrome.runtime.lastError.message);
-				} else {
-					sendResponse({ farewell: ParseJSON(response) });
-				}
+			fetch('http://localhost:5000/log', {
+				method: 'POST',
+				headers: {
+					'Accept': 'application/json, text/plain, */*',
+					'Content-Type': 'application/json'
+				},
+				body: result
 			});
 		}
 		focused = window.focused;

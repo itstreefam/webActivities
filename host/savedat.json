@@ -1,9 +1,0 @@
-{
-    "name": "savedat",
-    "description": "Chrome Native Messaging API to save json data to user's project directory",
-    "path": "python HOST_PATH",
-    "type": "stdio",
-    "allowed_origins": [
-	  "chrome-extension://oodgkobcncaompiopbelgfbmcncfpjle/"
-    ]
-  }
