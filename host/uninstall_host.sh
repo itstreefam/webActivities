@@ -16,6 +16,6 @@ else
   fi
 fi
 
-HOST_NAME=savedat-mac
-rm "$TARGET_DIR/savedat-mac.json"
+HOST_NAME=savedat
+rm "$TARGET_DIR/savedat.json"
 echo "Native messaging host $HOST_NAME has been uninstalled."

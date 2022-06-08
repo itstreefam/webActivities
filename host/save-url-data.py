@@ -3,15 +3,15 @@
 import sys
 import struct
 import os
-import msvcrt
 
 # On Windows, the default I/O mode is O_TEXT. Set this to O_BINARY
 # to avoid unwanted modifications of the input/output streams.
 if sys.platform == "win32":
+    import msvcrt
     msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
     msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
-user_project_directory = os.path.normpath(r'C:\path\to\user\project\folder')
+user_project_directory = os.path.normpath(r'')
 
 try:
     # Python 3.x version

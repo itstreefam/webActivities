@@ -17,7 +17,7 @@ else
   fi
 fi
 
-HOST_NAME=savedat-mac
+HOST_NAME=savedat
 
 # Create directory to store native messaging host.
 mkdir -p "$TARGET_DIR"
