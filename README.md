@@ -4,7 +4,7 @@ A Google Chrome extension that aims to capture the information needed to generat
 
 ## Demo
 
-https://user-images.githubusercontent.com/44308446/172105979-db968538-7b7b-4aff-9f90-aee86a1c672d.mp4
+https://user-images.githubusercontent.com/44308446/172900037-66332410-a1e5-4999-878f-48ab021aa4d4.mp4
 
 ## Requirements
 
