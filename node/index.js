@@ -22,7 +22,9 @@ app.post('/log', (req, res) => {
     
     // if user_dir already has data
     if (fs.existsSync(file)) {
-        fs.appendFileSync(file, data, (err) => {
+        let fileData = JSON.parse(fs.readFileSync(file));
+        let concatData = fileData.concat(urlResult);
+        fs.writeFileSync(file, JSON.stringify(concatData, undefined, 4), (err) => {
             if (err) throw err;
             console.log('The file has been appended and saved!');
         });

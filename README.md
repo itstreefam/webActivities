@@ -12,7 +12,7 @@ https://user-images.githubusercontent.com/44308446/172105979-db968538-7b7b-4aff-
 
 ## Extension Settings
 
-Clone this reprository. Then go into the node folder and run "npm i -s express" to install the express package. After that, update the variable 'user_project_directory' in node/index.js with a folder path that the user plans to perform their tasks/work on. 
+Clone this reprository. Then go into the node folder and run "npm i" to install all dependencies. After that, update the variable 'user_project_directory' in node/index.js with a folder path that the user plans to perform their tasks/work on. 
 
 Run "node index.js" inside the node folder to start up the localhost node server that can capture the web data information and communicate them to a user's working folder. Finally, load the extension on Google Chrome by visiting chrome://extensions/, turning on Developer mode, and choosing the option Load unpacked.
 
