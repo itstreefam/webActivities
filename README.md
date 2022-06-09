@@ -8,21 +8,25 @@ https://user-images.githubusercontent.com/44308446/172105979-db968538-7b7b-4aff-
 
 ## Requirements
 
-* Python version 2 or 3 to run background script that transfers web search data to a local user directory
+* Node JS
 
 ## Extension Settings
 
-Clone this repository and load it on Google Chrome by visiting chrome://extensions/, turning on Developer mode, and choosing the option Load unpacked.
+Clone this reprository. Then go into the node folder and run "npm i" to install all dependencies. After that, update the variable 'user_project_directory' in node/index.js with a folder path that the user plans to perform their tasks/work on. 
 
-Once the extension is loaded, copy and paste its ID to the placeholder in host/savedat.json. When done, double click install_host.bat to enable the system host connection for transferring the data from Google Chrome to the system host that will then write the data to a file named 'data' in an assigned user working directory.
+Run "node index.js" inside the node folder to start up the localhost node server that can capture the web data information and communicate them to a user's working folder. Finally, load the extension on Google Chrome by visiting chrome://extensions/, turning on Developer mode, and choosing the option Load unpacked.
 
-The assigned user working directory should be determined beforehand by updating the variable 'user_project_directory' in host/save-url-data.py with a folder path that the user plans to perform their tasks on.
+The user can start browsing Google Chrome as usual as the web urls are recorded and saved in a file named 'data' in the 'user_project_directory.' 
 
 ## Release Notes
 
 ### V1
 
 Initial release of webActivities. Basic web activity capture in the background while the user is using Google Chrome. The data will be consistently updated as the user unfocuses from any Chrome window.
+
+### V1.x
+
+Updated webActivites to be compatible with both MacOS and Windows by utilizing local node server instead of native messaging.
 
 ## Contact
 

@@ -1,4 +1,5 @@
+node/node_modules
+node/.vscode
 node_modules
-dist
-release*
+.DS_Store
 ctl.log
