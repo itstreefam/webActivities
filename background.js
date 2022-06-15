@@ -194,7 +194,8 @@ setInterval(function () {
 	chrome.windows.getLastFocused(function (window) {
 		if (focused && !window.focused) {
 			console.log("window unfocused (exporting data to user's working project folder)");
-			var result = JSON.stringify(tableData, undefined, 4);
+			let result = JSON.stringify(tableData, undefined, 4);
+
 			fetch('http://localhost:5000/log', {
 				method: 'POST',
 				headers: {
@@ -202,6 +203,10 @@ setInterval(function () {
 					'Content-Type': 'application/json'
 				},
 				body: result
+			}).then(function (response) {
+				console.log(response);
+			}).catch(function (error) {
+				console.log(error);
 			});
 		}
 		focused = window.focused;

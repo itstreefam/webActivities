@@ -5,11 +5,13 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const cp = require('child_process');
 const fs = require('fs');
+const cors = require('cors');
 
-const user_dir = String.raw`/Users/pham/Desktop/test-web`;
+const user_dir = String.raw`C:\Users\thien\Desktop\test_web`;
 
 const app = express();
 
+app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -22,23 +24,19 @@ app.post('/log', (req, res) => {
     
     // if user_dir already has data
     if (fs.existsSync(file)) {
-        let fileData = JSON.parse(fs.readFileSync(file));
-        let concatData = fileData.concat(urlResult);
-        fs.writeFileSync(file, JSON.stringify(concatData, undefined, 4), (err) => {
+        // delete content of file
+        fs.writeFileSync(file, '');
+        // append new data to file
+        fs.writeFileSync(file, data, (err) => {
             if (err) throw err;
-            console.log('The file has been appended and saved!');
         });
     } else {
         fs.writeFileSync(file, data, (err) => {
             if (err) throw err;
-            console.log('The file has been created and saved!');
         });
     }
+    res.send('ok');
 });
-
-app.get('/', function (req, res) {
-    res.send('GET request to homepage')
-})
 
 app.listen(PORT, () => {
     console.log('Server is running on port: ' + PORT);
