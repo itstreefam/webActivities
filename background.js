@@ -194,16 +194,39 @@ setInterval(function () {
 	chrome.windows.getLastFocused(function (window) {
 		if (focused && !window.focused) {
 			console.log("window unfocused (exporting data to user's working project folder)");
-			var result = JSON.stringify(tableData, undefined, 4);
-			fetch('http://localhost:5000/log', {
-				method: 'POST',
-				headers: {
-					'Accept': 'application/json, text/plain, */*',
-					'Content-Type': 'application/json'
-				},
-				body: result
-			});
+			let result = JSON.stringify(tableData, undefined, 4);
+			console.log(result);
+
+			// fetch('http://localhost:5000/log', {
+			// 	method: 'POST',
+			// 	headers: {
+			// 		'Accept': 'application/json, text/plain, */*',
+			// 		'Content-Type': 'application/json'
+			// 	},
+			// 	body: result
+			// }).then(function (response) {
+			// 	console.log(response);
+			// }).catch(function (error) {
+			// 	console.log(error);
+			// });
+	
+			asyncPostCall(result);
 		}
 		focused = window.focused;
 	});
 }, 1000);
+
+const asyncPostCall = async (data) => {
+	try {
+		const response = await fetch('http://localhost:5000/log', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+		   	body: data
+		});
+	} catch(error) {
+	 	// enter your logic for when there is an error (ex. error toast)
+		console.log(error);
+	} 
+}
