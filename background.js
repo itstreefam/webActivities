@@ -214,7 +214,7 @@ setInterval(function () {
 		}
 		focused = window.focused;
 	});
-}, 2000);
+}, 1000);
 
 const asyncPostCall = async (data) => {
 	try {
