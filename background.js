@@ -1,5 +1,4 @@
 var lastTabID = 0;
-var tableData = [];
 
 chrome.alarms.create("postDataToNode", {
 	delayInMinutes: 0.1,
@@ -16,12 +15,12 @@ chrome.runtime.onInstalled.addListener(function (details) {
 				chrome.tabs.create({ url: "chrome://newtab/" });
 			}
 			chrome.storage.local.clear();
-			tableData = [];
+			setStorageKey('tableData', []);
 		});
 	}
 	else {
 		chrome.storage.local.clear();
-		tableData = [];
+		setStorageKey('tableData', []);
 	};
 });
 
@@ -39,7 +38,16 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 			// if newValue.recording is true
 			if (typeof newValue.recording !== 'undefined') {
 				if (newValue.recording) {
-					tableData.push(newValue);
+					// save the data to the storage
+					getStorageKeyValue('tableData', function (value) {
+						if(value.length === 0) {
+							setStorageKey('tableData', [newValue]);
+						}
+						else {
+							let newData = value.concat([newValue]);
+							setStorageKey('tableData', newData);
+						}
+					});
 				}
 			}
 		}
@@ -212,11 +220,15 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 
 chrome.alarms.onAlarm.addListener(function(alarm) {
 	if (alarm.name === "postDataToNode") {
-		let result = JSON.stringify(tableData, undefined, 4);
-		// console.log(result);
-		if (result !== "[]") {
-			asyncPostCall(result);
-		}
+		getStorageKeyValue('tableData', function (value) {
+			if (typeof value !== 'undefined') {
+				if (value.length > 0) {
+					console.log("exporting data to user's working project folder");
+					let result = JSON.stringify(value, undefined, 4);
+					asyncPostCall(result);
+				}
+			}
+		});
 	}
 });
 
