@@ -1,6 +1,11 @@
 var lastTabID = 0;
 var tableData = [];
 
+chrome.alarms.create("postDataToNode", {
+	delayInMinutes: 0.1,
+	periodInMinutes: 0.2
+});
+
 console.log('This is background service worker - edit me!');
 
 // on install, if there is only chrome://extensions/ in the browser window, then make a new tab
@@ -43,8 +48,9 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 
 function objCompare(obj1, obj2) {
 	if (typeof obj1 !== 'undefined' && typeof obj2 !== 'undefined') {
-		keys1 = Object.keys(obj1);
-		keys2 = Object.keys(obj2);
+		let keys1 = Object.keys(obj1);
+		let keys2 = Object.keys(obj2);
+
 		// delete the time key
 		keys1.splice(keys1.indexOf('time'), 1);
 		keys2.splice(keys2.indexOf('time'), 1);
@@ -107,7 +113,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 				if (e !== undefined) {
 					console.log(tabId, e);
 				}
-				console.log(ref);
+				// console.log(ref);
 				getStorageKeyValue(tabId.toString(), function (value) {
 					if (typeof value === 'undefined') {
 						// open hyperlink in new tab or omnibox search
@@ -189,44 +195,42 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 	}
 });
 
-var focused = true;
-setInterval(function () {
-	chrome.windows.getLastFocused(function (window) {
-		if (focused && !window.focused) {
-			console.log("window unfocused (exporting data to user's working project folder)");
-			let result = JSON.stringify(tableData, undefined, 4);
-			console.log(result);
+// var focused = true;
+// setInterval(function () {
+// 	chrome.windows.getLastFocused(function (window) {
+// 		if (focused && !window.focused) {
+// 			console.log("window unfocused (exporting data to user's working project folder)");
+// 			let result = JSON.stringify(tableData, undefined, 4);
+// 			console.log(result);
+// 			if(result !== "[]") {
+// 				asyncPostCall(result);
+// 			}
+// 		}
+// 		focused = window.focused;
+// 	});
+// }, 1000);
 
-			// fetch('http://localhost:5000/log', {
-			// 	method: 'POST',
-			// 	headers: {
-			// 		'Accept': 'application/json, text/plain, */*',
-			// 		'Content-Type': 'application/json'
-			// 	},
-			// 	body: result
-			// }).then(function (response) {
-			// 	console.log(response);
-			// }).catch(function (error) {
-			// 	console.log(error);
-			// });
-	
+chrome.alarms.onAlarm.addListener(function(alarm) {
+	if (alarm.name === "postDataToNode") {
+		let result = JSON.stringify(tableData, undefined, 4);
+		// console.log(result);
+		if (result !== "[]") {
 			asyncPostCall(result);
 		}
-		focused = window.focused;
-	});
-}, 1000);
+	}
+});
 
 const asyncPostCall = async (data) => {
 	try {
 		const response = await fetch('http://localhost:5000/log', {
 			method: 'POST',
 			headers: {
+				'Accept': 'application/json, text/plain, */*',
 				'Content-Type': 'application/json'
 			},
 		   	body: data
 		});
 	} catch(error) {
-	 	// enter your logic for when there is an error (ex. error toast)
 		console.log(error);
 	} 
 }

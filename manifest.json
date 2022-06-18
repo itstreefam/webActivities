@@ -16,13 +16,15 @@
 		"history",
         "downloads",
         "nativeMessaging",
-        "unlimitedStorage"
+        "unlimitedStorage",
+        "alarms"
     ],
 	"host_permissions": [
 	  "*://*/*"
 	],
     "background": {
-        "service_worker": "background.js"
+        "service_worker": "background.js",
+        "type": "module"
     },
     "action": {
         "default_title": "webActivities",
