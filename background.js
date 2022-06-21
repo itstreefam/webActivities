@@ -2,7 +2,7 @@ var lastTabID = 0;
 
 chrome.alarms.create("postDataToNode", {
 	delayInMinutes: 0.1,
-	periodInMinutes: 0.2
+	periodInMinutes: 0.15
 });
 
 console.log('This is background service worker - edit me!');
@@ -234,7 +234,7 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 
 const asyncPostCall = async (data) => {
 	try {
-		const response = await fetch('http://localhost:5000/log', {
+		const response = await fetch('http://localhost:3000/log', {
 			method: 'POST',
 			headers: {
 				'Accept': 'application/json, text/plain, */*',
