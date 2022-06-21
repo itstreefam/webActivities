@@ -1,5 +1,9 @@
 var lastTabID = 0;
-var tableData = [];
+
+chrome.alarms.create("postDataToNode", {
+	delayInMinutes: 0.1,
+	periodInMinutes: 0.15
+});
 
 console.log('This is background service worker - edit me!');
 
@@ -11,12 +15,12 @@ chrome.runtime.onInstalled.addListener(function (details) {
 				chrome.tabs.create({ url: "chrome://newtab/" });
 			}
 			chrome.storage.local.clear();
-			tableData = [];
+			setStorageKey('tableData', []);
 		});
 	}
 	else {
 		chrome.storage.local.clear();
-		tableData = [];
+		setStorageKey('tableData', []);
 	};
 });
 
@@ -34,7 +38,16 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 			// if newValue.recording is true
 			if (typeof newValue.recording !== 'undefined') {
 				if (newValue.recording) {
-					tableData.push(newValue);
+					// save the data to the storage
+					getStorageKeyValue('tableData', function (value) {
+						if(value.length === 0) {
+							setStorageKey('tableData', [newValue]);
+						}
+						else {
+							let newData = value.concat([newValue]);
+							setStorageKey('tableData', newData);
+						}
+					});
 				}
 			}
 		}
@@ -43,8 +56,9 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 
 function objCompare(obj1, obj2) {
 	if (typeof obj1 !== 'undefined' && typeof obj2 !== 'undefined') {
-		keys1 = Object.keys(obj1);
-		keys2 = Object.keys(obj2);
+		let keys1 = Object.keys(obj1);
+		let keys2 = Object.keys(obj2);
+
 		// delete the time key
 		keys1.splice(keys1.indexOf('time'), 1);
 		keys2.splice(keys2.indexOf('time'), 1);
@@ -107,7 +121,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 				if (e !== undefined) {
 					console.log(tabId, e);
 				}
-				console.log(ref);
+				// console.log(ref);
 				getStorageKeyValue(tabId.toString(), function (value) {
 					if (typeof value === 'undefined') {
 						// open hyperlink in new tab or omnibox search
@@ -189,44 +203,46 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 	}
 });
 
-var focused = true;
-setInterval(function () {
-	chrome.windows.getLastFocused(function (window) {
-		if (focused && !window.focused) {
-			console.log("window unfocused (exporting data to user's working project folder)");
-			let result = JSON.stringify(tableData, undefined, 4);
-			console.log(result);
+// var focused = true;
+// setInterval(function () {
+// 	chrome.windows.getLastFocused(function (window) {
+// 		if (focused && !window.focused) {
+// 			console.log("window unfocused (exporting data to user's working project folder)");
+// 			let result = JSON.stringify(tableData, undefined, 4);
+// 			console.log(result);
+// 			if(result !== "[]") {
+// 				asyncPostCall(result);
+// 			}
+// 		}
+// 		focused = window.focused;
+// 	});
+// }, 1000);
 
-			// fetch('http://localhost:5000/log', {
-			// 	method: 'POST',
-			// 	headers: {
-			// 		'Accept': 'application/json, text/plain, */*',
-			// 		'Content-Type': 'application/json'
-			// 	},
-			// 	body: result
-			// }).then(function (response) {
-			// 	console.log(response);
-			// }).catch(function (error) {
-			// 	console.log(error);
-			// });
-	
-			asyncPostCall(result);
-		}
-		focused = window.focused;
-	});
-}, 1000);
+chrome.alarms.onAlarm.addListener(function(alarm) {
+	if (alarm.name === "postDataToNode") {
+		getStorageKeyValue('tableData', function (value) {
+			if (typeof value !== 'undefined') {
+				if (value.length > 0) {
+					console.log("exporting data to user's working project folder");
+					let result = JSON.stringify(value, undefined, 4);
+					asyncPostCall(result);
+				}
+			}
+		});
+	}
+});
 
 const asyncPostCall = async (data) => {
 	try {
-		const response = await fetch('http://localhost:5000/log', {
+		const response = await fetch('http://localhost:3000/log', {
 			method: 'POST',
 			headers: {
+				'Accept': 'application/json, text/plain, */*',
 				'Content-Type': 'application/json'
 			},
 		   	body: data
 		});
 	} catch(error) {
-	 	// enter your logic for when there is an error (ex. error toast)
 		console.log(error);
 	} 
 }
