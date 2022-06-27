@@ -9,13 +9,20 @@ const { performance } = require('perf_hooks');
 
 let time = performance.now();
 
-const user_dir = String.raw`C:\Users\Tin Pham\Desktop\test_web`;
+const user_dir = String.raw`C:\Users\Tin Pham\Desktop\test_ML_Flask`;
 
 const app = express();
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header('Access-Control-Allow-Methods', 'DELETE, PUT, GET, POST');
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
 
 app.post('/log', (req, res) => {
     let urlResult = req.body;
@@ -41,13 +48,6 @@ app.post('/log', (req, res) => {
             // write newData to file
             fs.writeFileSync(file, JSON.stringify(newData, undefined, 4));
         }
-
-        // // delete content of file
-        // fs.writeFileSync(file, '');
-        // // append new data to file
-        // fs.writeFileSync(file, data, (err) => {
-        //     if (err) throw err;
-        // });
     } else {
         fs.writeFileSync(file, data, (err) => {
             if (err) throw err;
