@@ -48,13 +48,6 @@ app.post('/log', (req, res) => {
             // write newData to file
             fs.writeFileSync(file, JSON.stringify(newData, undefined, 4));
         }
-
-        // // delete content of file
-        // fs.writeFileSync(file, '');
-        // // append new data to file
-        // fs.writeFileSync(file, data, (err) => {
-        //     if (err) throw err;
-        // });
     } else {
         fs.writeFileSync(file, data, (err) => {
             if (err) throw err;
