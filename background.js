@@ -35,12 +35,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 	};
 });
 
-// test onhighlight event
-// chrome.tabs.onHighlighted.addListener(function (highlightInfo) {
-// 	console.log(highlightInfo);
-// });
-
-// check windows focus
+// check windows focus since tabs.onActivated does not get triggered when navigating between different chrome windows
 chrome.windows.onFocusChanged.addListener(function (windowId) {
 	if(windowId != -1) {
 		// get current focused tab
@@ -58,15 +53,17 @@ chrome.windows.onFocusChanged.addListener(function (windowId) {
 						try {
 							if (typeof tabInfo.action !== 'undefined') {
 								if(tabInfo.action !== "empty new tab is active tab"){
-									setStorageKey(String(value.curId), {
-										"curUrl": tabInfo.curUrl,
-										"curTabId": tabInfo.curTabId,
-										"prevUrl": prevTabInfo.curUrl,
-										"prevTabId": prevTabInfo.curTabId,
-										"recording": true,
-										"action": "revisit",
-										"time": timeStamp()
-									});
+									if(tabInfo.curUrl !== prevTabInfo.curUrl) {
+										setStorageKey(String(value.curId), {
+											"curUrl": tabInfo.curUrl,
+											"curTabId": tabInfo.curTabId,
+											"prevUrl": prevTabInfo.curUrl,
+											"prevTabId": prevTabInfo.curTabId,
+											"recording": tabInfo.recording,
+											"action": "revisit",
+											"time": timeStamp()
+										});
+									}
 								}
 							}
 						} catch(error) {
@@ -78,10 +75,6 @@ chrome.windows.onFocusChanged.addListener(function (windowId) {
 		});
 	}
 }, { windowTypes: ['normal'] });
-
-// test on created event
-
-// for revisit, must comes from a different prevId while the curUrl is the same
 
 // when a tab is opened, set appropriate info for latestTab
 chrome.tabs.onActivated.addListener(function (activeInfo) {
@@ -108,15 +101,17 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 					try {
 						if (typeof tabInfo.action !== 'undefined') {
 							if(tabInfo.action !== "empty new tab is active tab"){
-								setStorageKey(String(value.curId), {
-									"curUrl": tabInfo.curUrl,
-									"curTabId": tabInfo.curTabId,
-									"prevUrl": prevTabInfo.curUrl,
-									"prevTabId": prevTabInfo.curTabId,
-									"recording": true,
-									"action": "revisit",
-									"time": timeStamp()
-								});
+								if(tabInfo.curUrl !== prevTabInfo.curUrl) {
+									setStorageKey(String(value.curId), {
+										"curUrl": tabInfo.curUrl,
+										"curTabId": tabInfo.curTabId,
+										"prevUrl": prevTabInfo.curUrl,
+										"prevTabId": prevTabInfo.curTabId,
+										"recording": tabInfo.recording,
+										"action": "revisit",
+										"time": timeStamp()
+									});
+								}
 							}
 						}
 					} catch(error) {
