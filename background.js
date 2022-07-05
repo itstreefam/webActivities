@@ -35,8 +35,57 @@ chrome.runtime.onInstalled.addListener(function (details) {
 	};
 });
 
+// test onhighlight event
+// chrome.tabs.onHighlighted.addListener(function (highlightInfo) {
+// 	console.log(highlightInfo);
+// });
+
+// check windows focus
+chrome.windows.onFocusChanged.addListener(function (windowId) {
+	if(windowId != -1) {
+		// get current focused tab
+		chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+			getStorageKeyValue('latestTab', function (value) {
+				value.prevId = value.curId;
+				value.prevWinId = value.curWinId;
+				value.curId = tabs[0].id;
+				value.curWinId = tabs[0].windowId;
+				setStorageKey('latestTab', value);
+
+				// if tab is revisited
+				getStorageKeyValue(String(value.curId), function (tabInfo) {
+					getStorageKeyValue(String(value.prevId), function (prevTabInfo) {
+						try {
+							if (typeof tabInfo.action !== 'undefined') {
+								if(tabInfo.action !== "empty new tab is active tab"){
+									setStorageKey(String(value.curId), {
+										"curUrl": tabInfo.curUrl,
+										"curTabId": tabInfo.curTabId,
+										"prevUrl": prevTabInfo.curUrl,
+										"prevTabId": prevTabInfo.curTabId,
+										"recording": true,
+										"action": "revisit",
+										"time": timeStamp()
+									});
+								}
+							}
+						} catch(error) {
+							console.log(error);
+						} 
+					});
+				});
+			});
+		});
+	}
+}, { windowTypes: ['normal'] });
+
+// test on created event
+
+// for revisit, must comes from a different prevId while the curUrl is the same
+
 // when a tab is opened, set appropriate info for latestTab
 chrome.tabs.onActivated.addListener(function (activeInfo) {
+	// console.log(activeInfo);
 	getStorageKeyValue('latestTab', function (value) {
 		if(value.length == 0) {
 			setStorageKey('latestTab', {
@@ -50,7 +99,31 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 			value.prevWinId = value.curWinId;
 			value.curId = activeInfo.tabId;
 			value.curWinId = activeInfo.windowId;
+
 			setStorageKey('latestTab', value);
+			
+			// if tab is revisited
+			getStorageKeyValue(String(value.curId), function (tabInfo) {
+				getStorageKeyValue(String(value.prevId), function (prevTabInfo) {
+					try {
+						if (typeof tabInfo.action !== 'undefined') {
+							if(tabInfo.action !== "empty new tab is active tab"){
+								setStorageKey(String(value.curId), {
+									"curUrl": tabInfo.curUrl,
+									"curTabId": tabInfo.curTabId,
+									"prevUrl": prevTabInfo.curUrl,
+									"prevTabId": prevTabInfo.curTabId,
+									"recording": true,
+									"action": "revisit",
+									"time": timeStamp()
+								});
+							}
+						}
+					} catch(error) {
+						console.log(error);
+					} 
+				});
+			});
 		}
 	});
 });
@@ -109,10 +182,9 @@ function objCompare(obj1, obj2) {
 }
 
 function timeStamp() {
-	var time = Date.now || function () {
-		return +new Date;
-	};
-	return time();
+	let d = new Date();
+	let seconds = Math.round(d.getTime() / 1000);
+	return seconds;
 }
 
 // Sets a key and stores its value into the storage
@@ -173,7 +245,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"prevTabId": ((tab.url !== "chrome://newtab/") ? tab.openerTabId : tabId),
 													"recording": true,
 													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-													"time": new Date(timeStamp()).toLocaleString('en-US')
+													"time": timeStamp()
 												});
 											}
 											else {
@@ -185,7 +257,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"prevTabId": tabId,
 													"recording": true,
 													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-													"time": new Date(timeStamp()).toLocaleString('en-US')
+													"time": timeStamp()
 												});
 											}
 										});
@@ -200,7 +272,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 												"prevTabId": tabId,
 												"recording": true,
 												"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-												"time": new Date(timeStamp()).toLocaleString('en-US')
+												"time": timeStamp()
 											});
 										} 
 										if(typeof latestTabInfo.prevId !== 'undefined') {
@@ -214,7 +286,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 														"prevTabId": latestTabInfo.prevId,
 														"recording": true,
 														"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-														"time": new Date(timeStamp()).toLocaleString('en-US')
+														"time": timeStamp()
 													});
 												}
 											});
@@ -233,7 +305,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 											"prevTabId": latestTabInfo.curId,
 											"recording": true,
 											"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-											"time": new Date(timeStamp()).toLocaleString('en-US')
+											"time": timeStamp()
 										});
 									}
 								});
@@ -246,7 +318,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 						value.curUrl = tab.url;
 						value.prevTabId = tab.id;
 						value.action = "navigate between urls in the same tab";
-						value.time = new Date(timeStamp()).toLocaleString('en-US');
+						value.time = timeStamp();
 						setStorageKey(tabId.toString(), value);
 					}
 				});
@@ -269,8 +341,8 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 					});
 
 					let result = JSON.stringify(copyData, undefined, 4);
-					asyncPostCall(result);
-					// console.log(result);
+					// asyncPostCall(result);
+					console.log(result);
 				}
 			}
 		});
