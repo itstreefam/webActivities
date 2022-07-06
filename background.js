@@ -10,6 +10,7 @@ chrome.windows.getAll({ populate: false, windowTypes: ['normal'] }, function (wi
 			chrome.storage.local.clear();
 			setStorageKey('tableData', []);
 			setStorageKey('latestTab', {});
+			setStorageKey('closedTabId', -1);
 		});
 	}
 });
@@ -26,12 +27,14 @@ chrome.runtime.onInstalled.addListener(function (details) {
 			chrome.storage.local.clear();
 			setStorageKey('tableData', []);
 			setStorageKey('latestTab', {});
+			setStorageKey('closedTabId', -1);
 		});
 	}
 	else {
 		chrome.storage.local.clear();
 		setStorageKey('tableData', []);
 		setStorageKey('latestTab', {});
+		setStorageKey('closedTabId', -1);
 	};
 });
 
@@ -103,14 +106,30 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 							if (typeof tabInfo.action !== 'undefined') {
 								if(value.curWinId === value.prevWinId) {
 									if(tabInfo.curUrl !== prevTabInfo.curUrl) {
-										setStorageKey(String(value.curId), {
-											"curUrl": tabInfo.curUrl,
-											"curTabId": tabInfo.curTabId,
-											"prevUrl": prevTabInfo.curUrl,
-											"prevTabId": prevTabInfo.curTabId,
-											"recording": tabInfo.recording,
-											"action": "revisit",
-											"time": timeStamp()
+										getStorageKeyValue('closedTabId', function (closedTabId) {
+											if(closedTabId === -1) {
+												setStorageKey(String(value.curId), {
+													"curUrl": tabInfo.curUrl,
+													"curTabId": tabInfo.curTabId,
+													"prevUrl": prevTabInfo.curUrl,
+													"prevTabId": prevTabInfo.curTabId,
+													"recording": tabInfo.recording,
+													"action": "revisit",
+													"time": timeStamp()
+												});
+											} else {
+												setStorageKey(String(value.curId), {
+													"curUrl": tabInfo.curUrl,
+													"curTabId": tabInfo.curTabId,
+													"prevUrl": prevTabInfo.curUrl,
+													"prevTabId": prevTabInfo.curTabId,
+													"recording": tabInfo.recording,
+													"action": "revisit after previous tab closed",
+													"time": timeStamp()
+												});
+
+												setStorageKey('closedTabId', -1);
+											}
 										});
 									}
 								}
@@ -123,6 +142,11 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 			}
 		});
 	});
+});
+
+//on tab removed
+chrome.tabs.onRemoved.addListener(function (tabId, removeInfo) {
+	setStorageKey('closedTabId', tabId);
 });
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {
@@ -338,8 +362,8 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 					});
 
 					let result = JSON.stringify(copyData, undefined, 4);
-					// asyncPostCall(result);
-					console.log(result);
+					asyncPostCall(result);
+					// console.log(result);
 				}
 			}
 		});
