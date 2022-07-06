@@ -10,6 +10,7 @@ chrome.windows.getAll({ populate: false, windowTypes: ['normal'] }, function (wi
 			chrome.storage.local.clear();
 			setStorageKey('tableData', []);
 			setStorageKey('latestTab', {});
+			setStorageKey('closedTabId', -1);
 		});
 	}
 });
@@ -26,33 +27,126 @@ chrome.runtime.onInstalled.addListener(function (details) {
 			chrome.storage.local.clear();
 			setStorageKey('tableData', []);
 			setStorageKey('latestTab', {});
+			setStorageKey('closedTabId', -1);
 		});
 	}
 	else {
 		chrome.storage.local.clear();
 		setStorageKey('tableData', []);
 		setStorageKey('latestTab', {});
+		setStorageKey('closedTabId', -1);
 	};
 });
 
-// when a tab is opened, set appropriate info for latestTab
-chrome.tabs.onActivated.addListener(function (activeInfo) {
-	getStorageKeyValue('latestTab', function (value) {
-		if(value.length == 0) {
-			setStorageKey('latestTab', {
-				curId: activeInfo.tabId,
-				curWinId: activeInfo.windowId,
-				prevId: -1,
-				prevWinId: -1
+// check windows focus since tabs.onActivated does not get triggered when navigating between different chrome windows
+chrome.windows.onFocusChanged.addListener(function (windowId) {
+	if(windowId != -1) {
+		// get current focused tab
+		chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+			getStorageKeyValue('latestTab', function (value) {
+				value.prevId = value.curId;
+				value.prevWinId = value.curWinId;
+				value.curId = tabs[0].id;
+				value.curWinId = tabs[0].windowId;
+				setStorageKey('latestTab', value);
+
+				// if tab is revisited
+				getStorageKeyValue(String(value.curId), function (tabInfo) {
+					getStorageKeyValue(String(value.prevId), function (prevTabInfo) {
+						try {
+							if (typeof tabInfo.action !== 'undefined') {
+								if(value.curWinId !== value.prevWinId) {
+									if(tabInfo.curUrl !== prevTabInfo.curUrl) {
+										setStorageKey(String(value.curId), {
+											"curUrl": tabInfo.curUrl,
+											"curTabId": tabInfo.curTabId,
+											"prevUrl": prevTabInfo.curUrl,
+											"prevTabId": prevTabInfo.curTabId,
+											"recording": tabInfo.recording,
+											"action": "revisit",
+											"time": timeStamp()
+										});
+									}
+								}
+							}
+						} catch(error) {
+							console.log(error);
+						} 
+					});
+				});
 			});
-		} else {
-			value.prevId = value.curId;
-			value.prevWinId = value.curWinId;
-			value.curId = activeInfo.tabId;
-			value.curWinId = activeInfo.windowId;
-			setStorageKey('latestTab', value);
-		}
+		});
+	}
+}, { windowTypes: ['normal'] });
+
+// when a tab is opened, set appropriate info for latestTab
+// tabs.onActivated handles tabs activities in the same chrome window
+chrome.tabs.onActivated.addListener(function (activeInfo) {
+	chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+		getStorageKeyValue('latestTab', function (value) {
+			if(value.length == 0) {
+				setStorageKey('latestTab', {
+					curId: activeInfo.tabId,
+					curWinId: activeInfo.windowId,
+					prevId: -1,
+					prevWinId: -1
+				});
+			} else {
+				value.prevId = value.curId;
+				value.prevWinId = value.curWinId;
+				value.curId = tabs[0].id;
+				value.curWinId = tabs[0].windowId;
+
+				setStorageKey('latestTab', value);
+				
+				// if tab is revisited
+				getStorageKeyValue(String(value.curId), function (tabInfo) {
+					getStorageKeyValue(String(value.prevId), function (prevTabInfo) {
+						try {
+							if (typeof tabInfo.action !== 'undefined') {
+								if(value.curWinId === value.prevWinId) {
+									if(tabInfo.curUrl !== prevTabInfo.curUrl) {
+										getStorageKeyValue('closedTabId', function (closedTabId) {
+											if(closedTabId === -1) {
+												setStorageKey(String(value.curId), {
+													"curUrl": tabInfo.curUrl,
+													"curTabId": tabInfo.curTabId,
+													"prevUrl": prevTabInfo.curUrl,
+													"prevTabId": prevTabInfo.curTabId,
+													"recording": tabInfo.recording,
+													"action": "revisit",
+													"time": timeStamp()
+												});
+											} else {
+												setStorageKey(String(value.curId), {
+													"curUrl": tabInfo.curUrl,
+													"curTabId": tabInfo.curTabId,
+													"prevUrl": prevTabInfo.curUrl,
+													"prevTabId": prevTabInfo.curTabId,
+													"recording": tabInfo.recording,
+													"action": "revisit after previous tab closed",
+													"time": timeStamp()
+												});
+
+												setStorageKey('closedTabId', -1);
+											}
+										});
+									}
+								}
+							}
+						} catch(error) {
+							console.log(error);
+						} 
+					});
+				});
+			}
+		});
 	});
+});
+
+//on tab removed
+chrome.tabs.onRemoved.addListener(function (tabId, removeInfo) {
+	setStorageKey('closedTabId', tabId);
 });
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {
@@ -109,10 +203,9 @@ function objCompare(obj1, obj2) {
 }
 
 function timeStamp() {
-	var time = Date.now || function () {
-		return +new Date;
-	};
-	return time();
+	let d = new Date();
+	let seconds = Math.round(d.getTime() / 1000);
+	return seconds;
 }
 
 // Sets a key and stores its value into the storage
@@ -173,7 +266,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"prevTabId": ((tab.url !== "chrome://newtab/") ? tab.openerTabId : tabId),
 													"recording": true,
 													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-													"time": new Date(timeStamp()).toLocaleString('en-US')
+													"time": timeStamp()
 												});
 											}
 											else {
@@ -185,7 +278,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"prevTabId": tabId,
 													"recording": true,
 													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-													"time": new Date(timeStamp()).toLocaleString('en-US')
+													"time": timeStamp()
 												});
 											}
 										});
@@ -200,7 +293,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 												"prevTabId": tabId,
 												"recording": true,
 												"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-												"time": new Date(timeStamp()).toLocaleString('en-US')
+												"time": timeStamp()
 											});
 										} 
 										if(typeof latestTabInfo.prevId !== 'undefined') {
@@ -214,7 +307,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 														"prevTabId": latestTabInfo.prevId,
 														"recording": true,
 														"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-														"time": new Date(timeStamp()).toLocaleString('en-US')
+														"time": timeStamp()
 													});
 												}
 											});
@@ -233,7 +326,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 											"prevTabId": latestTabInfo.curId,
 											"recording": true,
 											"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-											"time": new Date(timeStamp()).toLocaleString('en-US')
+											"time": timeStamp()
 										});
 									}
 								});
@@ -246,7 +339,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 						value.curUrl = tab.url;
 						value.prevTabId = tab.id;
 						value.action = "navigate between urls in the same tab";
-						value.time = new Date(timeStamp()).toLocaleString('en-US');
+						value.time = timeStamp();
 						setStorageKey(tabId.toString(), value);
 					}
 				});
