@@ -52,7 +52,7 @@ chrome.windows.onFocusChanged.addListener(function (windowId) {
 					getStorageKeyValue(String(value.prevId), function (prevTabInfo) {
 						try {
 							if (typeof tabInfo.action !== 'undefined') {
-								if(tabInfo.action !== "empty new tab is active tab"){
+								if(value.curWinId !== value.prevWinId) {
 									if(tabInfo.curUrl !== prevTabInfo.curUrl) {
 										setStorageKey(String(value.curId), {
 											"curUrl": tabInfo.curUrl,
@@ -77,49 +77,51 @@ chrome.windows.onFocusChanged.addListener(function (windowId) {
 }, { windowTypes: ['normal'] });
 
 // when a tab is opened, set appropriate info for latestTab
+// tabs.onActivated handles tabs activities in the same chrome window
 chrome.tabs.onActivated.addListener(function (activeInfo) {
-	// console.log(activeInfo);
-	getStorageKeyValue('latestTab', function (value) {
-		if(value.length == 0) {
-			setStorageKey('latestTab', {
-				curId: activeInfo.tabId,
-				curWinId: activeInfo.windowId,
-				prevId: -1,
-				prevWinId: -1
-			});
-		} else {
-			value.prevId = value.curId;
-			value.prevWinId = value.curWinId;
-			value.curId = activeInfo.tabId;
-			value.curWinId = activeInfo.windowId;
+	chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+		getStorageKeyValue('latestTab', function (value) {
+			if(value.length == 0) {
+				setStorageKey('latestTab', {
+					curId: activeInfo.tabId,
+					curWinId: activeInfo.windowId,
+					prevId: -1,
+					prevWinId: -1
+				});
+			} else {
+				value.prevId = value.curId;
+				value.prevWinId = value.curWinId;
+				value.curId = tabs[0].id;
+				value.curWinId = tabs[0].windowId;
 
-			setStorageKey('latestTab', value);
-			
-			// if tab is revisited
-			getStorageKeyValue(String(value.curId), function (tabInfo) {
-				getStorageKeyValue(String(value.prevId), function (prevTabInfo) {
-					try {
-						if (typeof tabInfo.action !== 'undefined') {
-							if(tabInfo.action !== "empty new tab is active tab"){
-								if(tabInfo.curUrl !== prevTabInfo.curUrl) {
-									setStorageKey(String(value.curId), {
-										"curUrl": tabInfo.curUrl,
-										"curTabId": tabInfo.curTabId,
-										"prevUrl": prevTabInfo.curUrl,
-										"prevTabId": prevTabInfo.curTabId,
-										"recording": tabInfo.recording,
-										"action": "revisit",
-										"time": timeStamp()
-									});
+				setStorageKey('latestTab', value);
+				
+				// if tab is revisited
+				getStorageKeyValue(String(value.curId), function (tabInfo) {
+					getStorageKeyValue(String(value.prevId), function (prevTabInfo) {
+						try {
+							if (typeof tabInfo.action !== 'undefined') {
+								if(value.curWinId === value.prevWinId) {
+									if(tabInfo.curUrl !== prevTabInfo.curUrl) {
+										setStorageKey(String(value.curId), {
+											"curUrl": tabInfo.curUrl,
+											"curTabId": tabInfo.curTabId,
+											"prevUrl": prevTabInfo.curUrl,
+											"prevTabId": prevTabInfo.curTabId,
+											"recording": tabInfo.recording,
+											"action": "revisit",
+											"time": timeStamp()
+										});
+									}
 								}
 							}
-						}
-					} catch(error) {
-						console.log(error);
-					} 
+						} catch(error) {
+							console.log(error);
+						} 
+					});
 				});
-			});
-		}
+			}
+		});
 	});
 });
 
