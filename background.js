@@ -62,6 +62,7 @@ chrome.windows.onFocusChanged.addListener(function (windowId) {
 											"curTabId": tabInfo.curTabId,
 											"prevUrl": prevTabInfo.curUrl,
 											"prevTabId": prevTabInfo.curTabId,
+											"curTitle": tabs[0].title,
 											"recording": tabInfo.recording,
 											"action": "revisit",
 											"time": timeStamp()
@@ -113,6 +114,7 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 													"curTabId": tabInfo.curTabId,
 													"prevUrl": prevTabInfo.curUrl,
 													"prevTabId": prevTabInfo.curTabId,
+													"curTitle": tabs[0].title,
 													"recording": tabInfo.recording,
 													"action": "revisit",
 													"time": timeStamp()
@@ -123,6 +125,7 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 													"curTabId": tabInfo.curTabId,
 													"prevUrl": prevTabInfo.curUrl,
 													"prevTabId": prevTabInfo.curTabId,
+													"curTitle": tabs[0].title,
 													"recording": tabInfo.recording,
 													"action": "revisit after previous tab closed",
 													"time": timeStamp()
@@ -264,6 +267,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"curTabId": tabId,
 													"prevUrl": ((tab.url !== "chrome://newtab/") ? v.curUrl : ""),
 													"prevTabId": ((tab.url !== "chrome://newtab/") ? tab.openerTabId : tabId),
+													"curTitle": tab.title,
 													"recording": true,
 													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 													"time": timeStamp()
@@ -276,6 +280,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"curTabId": tabId,
 													"prevUrl": "",
 													"prevTabId": tabId,
+													"curTitle": tab.title,
 													"recording": true,
 													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 													"time": timeStamp()
@@ -291,6 +296,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 												"curTabId": tabId,
 												"prevUrl": "",
 												"prevTabId": tabId,
+												"curTitle": tab.title,
 												"recording": true,
 												"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 												"time": timeStamp()
@@ -305,6 +311,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 														"curTabId": tabId,
 														"prevUrl": v.curUrl,
 														"prevTabId": latestTabInfo.prevId,
+														"curTitle": tab.title,
 														"recording": true,
 														"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
 														"time": timeStamp()
@@ -324,6 +331,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 											"curTabId": tabId,
 											"prevUrl": v.curUrl,
 											"prevTabId": latestTabInfo.curId,
+											"curTitle": tab.title,
 											"recording": true,
 											"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
 											"time": timeStamp()
@@ -338,6 +346,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 						value.prevUrl = value.curUrl;
 						value.curUrl = tab.url;
 						value.prevTabId = tab.id;
+						value.curTitle = tab.title;
 						value.action = "navigate between urls in the same tab";
 						value.time = timeStamp();
 						setStorageKey(tabId.toString(), value);
