@@ -11,6 +11,7 @@ chrome.windows.getAll({ populate: false, windowTypes: ['normal'] }, function (wi
 			setStorageKey('tableData', []);
 			setStorageKey('latestTab', {});
 			setStorageKey('closedTabId', -1);
+			setStorageKey('transitionsList', []);
 		});
 	}
 });
@@ -28,6 +29,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 			setStorageKey('tableData', []);
 			setStorageKey('latestTab', {});
 			setStorageKey('closedTabId', -1);
+			setStorageKey('transitionsList', []);
 		});
 	}
 	else {
@@ -35,6 +37,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 		setStorageKey('tableData', []);
 		setStorageKey('latestTab', {});
 		setStorageKey('closedTabId', -1);
+		setStorageKey('transitionsList', []);
 	};
 });
 
@@ -237,7 +240,37 @@ function newTabChecker(id, onGetLastTabId) {
 	});
 }
 
+// on history visited, get the index offset for the history's visit object
+// as events can be grouped together (type immediately followed by link), 
+// the index offset helps to identify the correct transition type
+// chrome.history.onVisited.addListener(function (historyItem) {
+// 	chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+// 		chrome.history.getVisits({ url: tabs[0].url }, function (visits) {
+// 			if(visits.length > 0) {
+// 				getStorageKeyValue('transitionsList', function (transitionList) {
+// 					let lastVisit = visits[visits.length - 1];
+// 					let transitionType = lastVisit.transition;
+// 					transitionList.push(transitionType);
+// 					setStorageKey('transitionsList', transitionList);
+// 				});
+// 			}
+// 		});
+// 	});
+// });
+
 chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+	chrome.history.getVisits({ url: tab.url }, function (visits) {
+		if(visits.length > 0) {
+			getStorageKeyValue('transitionsList', function (transitionList) {
+				let lastVisit = visits[visits.length - 1];
+				let transitionType = lastVisit.transition;
+				transitionList.push(transitionType);
+				setStorageKey('transitionsList', transitionList);
+			});
+		}
+	});
+
+
 	if (changeInfo.status === 'complete') {
 		chrome.scripting.executeScript({
 			target: { tabId: tabId },
@@ -272,6 +305,10 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 													"time": timeStamp()
 												});
+
+												if(tab.url !== "chrome://newtab/") {
+													setStorageKey('transitionsList', []);
+												}
 											}
 											else {
 												// this case happens when reloading the extension
@@ -285,6 +322,10 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 													"time": timeStamp()
 												});
+
+												if(tab.url !== "chrome://newtab/") {
+													setStorageKey('transitionsList', []);
+												}
 											}
 										});
 									}
@@ -301,6 +342,10 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 												"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 												"time": timeStamp()
 											});
+
+											if(tab.url !== "chrome://newtab/") {
+												setStorageKey('transitionsList', []);
+											}
 										} 
 										if(typeof latestTabInfo.prevId !== 'undefined') {
 											getStorageKeyValue(String(latestTabInfo.prevId), function (v) {
@@ -316,6 +361,10 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 														"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
 														"time": timeStamp()
 													});
+
+													if(tab.url !== "chrome://newtab/") {
+														setStorageKey('transitionsList', []);
+													}
 												}
 											});
 										}
@@ -336,22 +385,36 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 											"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
 											"time": timeStamp()
 										});
+
+										if(tab.url !== "chrome://newtab/") {
+											setStorageKey('transitionsList', []);
+										}
 									}
 								});
 							}
 						});
 					}
 					else {
-						// navigate between urls in a same tab
-						value.prevUrl = value.curUrl;
-						value.curUrl = tab.url;
-						value.prevTabId = tab.id;
-						value.curTitle = tab.title;
-						value.action = "navigate between urls in the same tab";
-						value.time = timeStamp();
-						setStorageKey(tabId.toString(), value);
+						// navigate between urls in a same tab	
+						getStorageKeyValue('transitionsList', function (transition) {
+							value.action = "navigate between urls in the same tab";
+							if(transition.length > 0) {
+								value.action = "navigate between urls in the same tab (" + transition[0] + ")";
+							}
+							value.prevUrl = value.curUrl;
+							value.curUrl = tab.url;
+							value.prevTabId = tab.id;
+							value.curTitle = tab.title;
+							value.time = timeStamp();
+							setStorageKey(tabId.toString(), value);
+							setStorageKey('transitionsList', []);
+						});
 					}
 				});
+			});
+
+			chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+				console.log(tabs[0].title);
 			});
 	}
 });
@@ -371,8 +434,8 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 					});
 
 					let result = JSON.stringify(copyData, undefined, 4);
-					asyncPostCall(result);
-					// console.log(result);
+					// asyncPostCall(result);
+					console.log(result);
 				}
 			}
 		});
