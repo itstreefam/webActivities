@@ -259,17 +259,18 @@ function newTabChecker(id, onGetLastTabId) {
 // });
 
 chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-	chrome.history.getVisits({ url: tab.url }, function (visits) {
-		if(visits.length > 0) {
-			getStorageKeyValue('transitionsList', function (transitionList) {
-				let lastVisit = visits[visits.length - 1];
-				let transitionType = lastVisit.transition;
-				transitionList.push(transitionType);
-				setStorageKey('transitionsList', transitionList);
-			});
-		}
-	});
-
+	if (changeInfo.status === 'loading') {
+		chrome.history.getVisits({ url: tab.url }, function (visits) {
+			if(visits.length > 0) {
+				getStorageKeyValue('transitionsList', function (transitionList) {
+					let lastVisit = visits[visits.length - 1];
+					let transitionType = lastVisit.transition;
+					transitionList.push(transitionType);
+					setStorageKey('transitionsList', transitionList);
+				});
+			}
+		});
+	}
 
 	if (changeInfo.status === 'complete') {
 		chrome.scripting.executeScript({
@@ -404,17 +405,13 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 							value.prevUrl = value.curUrl;
 							value.curUrl = tab.url;
 							value.prevTabId = tab.id;
-							value.curTitle = tab.title;
+							value.curTitle = "";
 							value.time = timeStamp();
 							setStorageKey(tabId.toString(), value);
 							setStorageKey('transitionsList', []);
 						});
 					}
 				});
-			});
-
-			chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-				console.log(tabs[0].title);
 			});
 	}
 });
