@@ -1,8 +1,8 @@
 // user can change newTab and extensionTab according to their browser choice, as long as browser is built based on Chrome engine
 // e.g. for Opera, newTab is "chrome://startpageshared/" and extensionTab is "chrome://extensions/"
 // for Edge, newTab is "edge://newtab/" and extensionTab is "edge://extensions/"
-const newTab = "edge://newtab/";
-const extensionTab = "edge://extensions/";
+const newTab = "chrome://newtab/";
+const extensionTab = "chrome://extensions/";
 
 chrome.alarms.create("postDataToNode", {
 	delayInMinutes: 0.1,
