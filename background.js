@@ -1,3 +1,9 @@
+// user can change newTab and extensionTab according to their browser choice, as long as browser is built based on Chrome engine
+// e.g. for Opera, newTab is "chrome://startpageshared/" and extensionTab is "chrome://extensions/"
+// for Edge, newTab is "edge://newtab/" and extensionTab is "edge://extensions/"
+const newTab = "edge://newtab/";
+const extensionTab = "edge://extensions/";
+
 chrome.alarms.create("postDataToNode", {
 	delayInMinutes: 0.1,
 	periodInMinutes: 0.15
@@ -22,8 +28,8 @@ console.log('This is background service worker - edit me!');
 chrome.runtime.onInstalled.addListener(function (details) {
 	if (details.reason === 'install') {
 		chrome.tabs.query({ currentWindow: true }, function (tabs) {
-			if (tabs.length === 1 && tabs[0].url === "chrome://extensions/") {
-				chrome.tabs.create({ url: "chrome://newtab/" });
+			if (tabs.length === 1 && tabs[0].url === extensionTab) {
+				chrome.tabs.create({ url: newTab });
 			}
 			chrome.storage.local.clear();
 			setStorageKey('tableData', []);
@@ -240,26 +246,11 @@ function newTabChecker(id, onGetLastTabId) {
 	});
 }
 
-// on history visited, get the index offset for the history's visit object
-// as events can be grouped together (type immediately followed by link), 
-// the index offset helps to identify the correct transition type
-// chrome.history.onVisited.addListener(function (historyItem) {
-// 	chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-// 		chrome.history.getVisits({ url: tabs[0].url }, function (visits) {
-// 			if(visits.length > 0) {
-// 				getStorageKeyValue('transitionsList', function (transitionList) {
-// 					let lastVisit = visits[visits.length - 1];
-// 					let transitionType = lastVisit.transition;
-// 					transitionList.push(transitionType);
-// 					setStorageKey('transitionsList', transitionList);
-// 				});
-// 			}
-// 		});
-// 	});
-// });
-
 chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 	if (changeInfo.status === 'loading') {
+		// e.g. transtionsList = ['typed', 'link', 'link'] for Facebook
+		// some events can be grouped together during web navigation 
+		// => transitionsList[0] is the correct transition type
 		chrome.history.getVisits({ url: tab.url }, function (visits) {
 			if(visits.length > 0) {
 				getStorageKeyValue('transitionsList', function (transitionList) {
@@ -299,15 +290,15 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 												setStorageKey(tabId.toString(), {
 													"curUrl": tab.url,
 													"curTabId": tabId,
-													"prevUrl": ((tab.url !== "chrome://newtab/") ? v.curUrl : ""),
-													"prevTabId": ((tab.url !== "chrome://newtab/") ? tab.openerTabId : tabId),
+													"prevUrl": ((tab.url !== newTab) ? v.curUrl : ""),
+													"prevTabId": ((tab.url !== newTab) ? tab.openerTabId : tabId),
 													"curTitle": tab.title,
 													"recording": true,
-													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+													"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 													"time": timeStamp()
 												});
 
-												if(tab.url !== "chrome://newtab/") {
+												if(tab.url !== newTab) {
 													setStorageKey('transitionsList', []);
 												}
 											}
@@ -320,11 +311,11 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"prevTabId": tabId,
 													"curTitle": tab.title,
 													"recording": true,
-													"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+													"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 													"time": timeStamp()
 												});
 
-												if(tab.url !== "chrome://newtab/") {
+												if(tab.url !== newTab) {
 													setStorageKey('transitionsList', []);
 												}
 											}
@@ -340,11 +331,11 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 												"prevTabId": tabId,
 												"curTitle": tab.title,
 												"recording": true,
-												"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+												"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 												"time": timeStamp()
 											});
 
-											if(tab.url !== "chrome://newtab/") {
+											if(tab.url !== newTab) {
 												setStorageKey('transitionsList', []);
 											}
 										} 
@@ -359,11 +350,11 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 														"prevTabId": latestTabInfo.prevId,
 														"curTitle": tab.title,
 														"recording": true,
-														"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+														"action": ((tab.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
 														"time": timeStamp()
 													});
 
-													if(tab.url !== "chrome://newtab/") {
+													if(tab.url !== newTab) {
 														setStorageKey('transitionsList', []);
 													}
 												}
@@ -383,11 +374,11 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 											"prevTabId": latestTabInfo.curId,
 											"curTitle": tab.title,
 											"recording": true,
-											"action": ((tab.url !== "chrome://newtab/") ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+											"action": ((tab.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
 											"time": timeStamp()
 										});
 
-										if(tab.url !== "chrome://newtab/") {
+										if(tab.url !== newTab) {
 											setStorageKey('transitionsList', []);
 										}
 									}
@@ -405,7 +396,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 							value.prevUrl = value.curUrl;
 							value.curUrl = tab.url;
 							value.prevTabId = tab.id;
-							value.curTitle = "";
+							value.curTitle = tab.title;
 							value.time = timeStamp();
 							setStorageKey(tabId.toString(), value);
 							setStorageKey('transitionsList', []);
@@ -431,8 +422,8 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 					});
 
 					let result = JSON.stringify(copyData, undefined, 4);
-					// asyncPostCall(result);
-					console.log(result);
+					asyncPostCall(result);
+					// console.log(result);
 				}
 			}
 		});
