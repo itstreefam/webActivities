@@ -12,9 +12,9 @@ https://user-images.githubusercontent.com/44308446/172900037-66332410-a1e5-4999-
 
 ## Extension Settings
 
-Clone this reprository. Then go into the node folder and run "npm i" to install all dependencies. After that, update the variable 'user_dir' in node/index.js with a folder path that the user plans to perform their tasks/work on. 
+Clone this reprository. Then you go into the node folder and run "npm i" to install all dependencies. You might also need to "npm install express" and "npm install cors" if "npm i" did not install those two. After that, update the variable 'user_dir' in node/index.js with a folder path that the you plan to perform their tasks/work on (i.e. the workspace of "[Extension Development Host]" VS Code window from codeHistories). 
 
-Run "node index.js" inside the node folder to start up the localhost node server that can capture the web data information and communicate them to a user's working folder. Finally, load the extension on Google Chrome by visiting chrome://extensions/, turning on Developer mode, and choosing the option Load unpacked.
+Run "node index.js" inside the node folder to start up the localhost node server that can capture the web data information and communicate them to your working folder. Finally, load the extension on Google Chrome by visiting chrome://extensions/, turning on Developer mode, and choosing the option "Load unpacked," and selecting the cloned "webActivities" directory on your computer.
 
 The user can start browsing Google Chrome as usual as the web urls are recorded and saved in a file named 'data' in the 'user_dir.' 
 
@@ -26,10 +26,10 @@ Initial release of webActivities. Basic web activity capture in the background w
 
 ### V1.x
 
-Updated webActivites to be compatible with both MacOS and Windows by utilizing local node server instead of native messaging. Update speed may be slightly affected depending on the size of data and workload of local server.
+Updated webActivites to be compatible with MacOS, Windows, and Linux by utilizing local node server instead of native messaging. Update speed may be slightly affected depending on the size of data and workload of local server.
 
 ## Contact
 
-p.tri@wustl.edu
+Feel free to let me know if there is any suggestions, comments, feedbacks, etc. at p.tri@wustl.edu
 
 **Thanks and enjoy!**
