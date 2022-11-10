@@ -8,7 +8,7 @@ const { performance } = require('perf_hooks');
 
 let time = performance.now();
 
-const user_dir = String.raw`C:\Users\Tin Pham\Desktop\test_ML_Flask`;
+const user_dir = String.raw`/home/tri/Desktop/test`;
 
 const app = express();
 
@@ -27,7 +27,7 @@ app.post('/log', (req, res) => {
     let urlResult = req.body;
     
     // save urlResult to data in user_dir
-    let file = path.join(user_dir, 'data');
+    let file = path.join(user_dir, 'webData');
     let data = JSON.stringify(urlResult, undefined, 4);
     
     // if user_dir already has data
