@@ -3,6 +3,7 @@
 // for Edge, newTab is "edge://newtab/" and extensionTab is "edge://extensions/"
 const newTab = "chrome://newtab/";
 const extensionTab = "chrome://extensions/";
+let portNum = 4000;
 
 chrome.alarms.create("postDataToNode", {
 	delayInMinutes: 0.1,
@@ -36,6 +37,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 			setStorageKey('latestTab', {});
 			setStorageKey('closedTabId', -1);
 			setStorageKey('transitionsList', []);
+			setStorageKey('port', portNum.toString());
 		});
 	}
 	else {
@@ -44,6 +46,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 		setStorageKey('latestTab', {});
 		setStorageKey('closedTabId', -1);
 		setStorageKey('transitionsList', []);
+		setStorageKey('port', portNum.toString());
 	};
 });
 
@@ -432,13 +435,15 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 
 const asyncPostCall = async (data) => {
 	try {
-		const response = await fetch('http://localhost:3000/log', {
-			method: 'POST',
-			headers: {
-				'Accept': 'application/json, text/plain, */*',
-				'Content-Type': 'application/json'
-			},
-		   	body: data
+		getStorageKeyValue('port', function (num) {
+			fetch("http://localhost:" + num + "/logWebData", {
+				method: 'POST',
+				headers: {
+					'Accept': 'application/json, text/plain, */*',
+					'Content-Type': 'application/json'
+				},
+				body: data
+			});
 		});
 	} catch(error) {
 		console.log(error);
