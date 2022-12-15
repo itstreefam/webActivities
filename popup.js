@@ -79,6 +79,35 @@ window.onload = function () {
       });
     }
   });
+  
+  let portInfo = document.getElementById("portInfo");
+  // make a form to hold the port number
+  let form = document.createElement("form");
+  portInfo.appendChild(form);
+  let label = document.createElement("label");
+  label.innerHTML = "Port number: ";
+  form.appendChild(label);
+  let input = document.createElement("input");
+  input.type = "text";
+  input.id = "portNumber";
+  input.value = "";
+  form.appendChild(input);
 
+  getStorageKeyValue("port", function (value) {
+    input.value = value;
+    input.style.width = (input.value.length * 10) + "px";
+  });
+
+  let submit = document.createElement("input");
+  submit.type = "submit";
+  submit.value = "Update";
+  form.appendChild(submit);
+
+  form.addEventListener("submit", function (e) {
+    // e.preventDefault();
+    console.log("port: " + input.value);
+    setStorageKey("port", input.value);
+    input.style.width = (input.value.length * 10) + "px";
+  });
 };
 

@@ -21,7 +21,7 @@ p{
     margin-bottom: 0.5em;
 }
 
-input {
+input[type="checkbox"] {
     -webkit-appearance: none;
     appearance: none;
     min-width: 64px;
@@ -32,19 +32,27 @@ input {
     transition: 0.3s ease-in-out;
 }
   
-input::before {
+input[type="checkbox"]::before {
     content: "OFF";
     font: bold 12px/32px Verdana;
     color: white;
     text-shadow: 0 1px black;
 }
   
-:checked {
+input[type="checkbox"]:checked {
     padding-left: 8px;
     background-color: green;
     background-position: 16px;
 }
   
-:checked::before {
+input[type="checkbox"]:checked::before {
     content: "ON";
+}
+
+input[type="submit"] {
+    float: right;
+}
+
+input[type="text"] {
+    justify-content: center;
 }
