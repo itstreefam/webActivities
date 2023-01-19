@@ -22,6 +22,68 @@ window.onload = function () {
     });
   }
 
+  /* record all tabs in current window */
+  var recordAllTabs = document.getElementById("recordAllTabs");
+  var toggleAllTabs = document.createElement("input");
+  toggleAllTabs.type = "checkbox";
+  toggleAllTabs.className = "toggle";
+
+  var divAllTabs = document.createElement("div");
+  divAllTabs.className = "url";
+
+  var textNodeAllTabs = document.createTextNode("Record all tabs in current window");
+  divAllTabs.appendChild(textNodeAllTabs);
+  divAllTabs.appendChild(toggleAllTabs);
+  recordAllTabs.appendChild(divAllTabs);
+
+  chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] }, function (currentWindow) {
+    getStorageKeyValue("curWindowId " + currentWindow.id.toString(), function (curWindowInfo) {
+      if(typeof curWindowInfo !== 'undefined'){
+        toggleAllTabs.id = "switchAllTabs " + currentWindow.id;
+        toggleAllTabs.checked = curWindowInfo.recording;
+      } else {
+        toggleAllTabs.id = "switchAllTabs " + currentWindow.id;
+        toggleAllTabs.checked = true;
+      }
+
+      // add event listener to toggleAllTabs
+      toggleAllTabs.addEventListener("click", function () {
+
+        // updating UI for all tabs in current window
+        var urlList = document.getElementById("urlList");
+        var urlListChildren = urlList.children;
+        for (var i = 0; i < urlListChildren.length; i++) {
+          var urlListChild = urlListChildren[i];
+          var urlListChildChildren = urlListChild.children;
+          for (var j = 0; j < urlListChildChildren.length; j++) {
+            var urlListChildChild = urlListChildChildren[j];
+            if (urlListChildChild.className == "toggle") {
+              urlListChildChild.checked = toggleAllTabs.checked;
+            }
+          }
+        }
+
+        // set recording for all tabs in current window
+        let tabsList = [];
+        for (let i = 0; i < currentWindow.tabs.length; i++) {
+          tabsList.push(currentWindow.tabs[i].id);
+          getStorageKeyValue(currentWindow.tabs[i].id.toString(), function (tabInfo) {
+            if (typeof tabInfo !== 'undefined') {
+              tabInfo.recording = toggleAllTabs.checked;
+              setStorageKey(currentWindow.tabs[i].id.toString(), tabInfo);
+            }
+          });
+        }
+        setStorageKey("curWindowId " + currentWindow.id.toString(), {
+          recording: toggleAllTabs.checked,
+          tabsList: tabsList
+        });
+      });
+
+    });
+  });
+
+  /* record any individual tab in current window */
   // loop through currently tabs and get their title
   chrome.tabs.query({ currentWindow: true }, function (tabs) {
     let urlList = document.getElementById("urlList");
@@ -80,6 +142,7 @@ window.onload = function () {
     }
   });
   
+  /* port number */
   let portInfo = document.getElementById("portInfo");
   // make a form to hold the port number
   let form = document.createElement("form");
