@@ -1,10 +1,9 @@
 window.onload = function () {
 
   function timeStamp() {
-    var time = Date.now || function () {
-      return +new Date;
-    };
-    return time();
+    let d = new Date();
+    let seconds = Math.round(d.getTime() / 1000);
+    return seconds;
   }
 
   function setStorageKey(key, value) {
@@ -111,9 +110,10 @@ window.onload = function () {
             "curTabId": id,
             "prevUrl": "",
             "prevTabId": id,
+            "curTitle": title,
             "recording": toggle.checked,
             "action": "add opened tab that is not in storage",
-            "time": new Date(timeStamp()).toLocaleString('en-US')
+            "time": timeStamp()
           });
         }
         else {
