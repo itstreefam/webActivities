@@ -42,7 +42,7 @@ window.onload = function () {
         toggleAllTabs.checked = curWindowInfo.recording;
       } else {
         toggleAllTabs.id = "switchAllTabs " + currentWindow.id;
-        toggleAllTabs.checked = true;
+        toggleAllTabs.checked = false;
       }
 
       // add event listener to toggleAllTabs
@@ -104,7 +104,7 @@ window.onload = function () {
 
       getStorageKeyValue(id, function (value) {
         if (typeof value === 'undefined') {
-          toggle.checked = true;
+          toggle.checked = false;
           setStorageKey(id.toString(), {
             "curUrl": url,
             "curTabId": id,

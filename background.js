@@ -22,7 +22,7 @@ chrome.windows.getAll({ populate: false, windowTypes: ['normal'] }, function (wi
 			setStorageKey('port', portNum.toString());
 			setStorageKey('curWindowId ' + windows[0].id.toString(), {
 				"tabsList": [],
-				"recording": true
+				"recording": false
 			});
 		});
 	}
@@ -45,7 +45,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 			setStorageKey('port', portNum.toString());
 			setStorageKey('curWindowId ' + tabs[0].windowId.toString(), {
 				"tabsList": [],
-				"recording": true
+				"recording": false
 			});
 		});
 	}
@@ -59,7 +59,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 			setStorageKey('port', portNum.toString());
 			setStorageKey('curWindowId ' + currentWindow.id.toString(), {
 				"tabsList": [],
-				"recording": true
+				"recording": false
 			});
 		});
 	};
@@ -112,7 +112,7 @@ chrome.windows.onCreated.addListener(function (window) {
 		if(typeof result === 'undefined') {
 			setStorageKey('curWindowId ' + window.id.toString(), {
 				"tabsList": [],
-				"recording": true
+				"recording": false
 			});
 		}
 	});
@@ -347,7 +347,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 															"prevUrl": ((tab.url !== newTab) ? v.curUrl : ""),
 															"prevTabId": ((tab.url !== newTab) ? tab.openerTabId : tabId),
 															"curTitle": tab.title,
-															"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : true),
+															"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
 															"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 															"time": timeStamp()
 														});
@@ -364,7 +364,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 															"prevUrl": "",
 															"prevTabId": tabId,
 															"curTitle": tab.title,
-															"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : true),
+															"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
 															"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 															"time": timeStamp()
 														});
@@ -384,7 +384,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 														"prevUrl": "",
 														"prevTabId": tabId,
 														"curTitle": tab.title,
-														"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : true),
+														"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
 														"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
 														"time": timeStamp()
 													});
@@ -403,7 +403,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 																"prevUrl": v.curUrl,
 																"prevTabId": latestTabInfo.prevId,
 																"curTitle": tab.title,
-																"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : true),
+																"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
 																"action": ((tab.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
 																"time": timeStamp()
 															});
@@ -427,7 +427,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 													"prevUrl": v.curUrl,
 													"prevTabId": latestTabInfo.curId,
 													"curTitle": tab.title,
-													"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : true),
+													"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
 													"action": ((tab.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
 													"time": timeStamp()
 												});
