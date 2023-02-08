@@ -69,18 +69,16 @@ chrome.runtime.onInstalled.addListener(function (details) {
 chrome.windows.onFocusChanged.addListener(async function (windowId) {
 	if (windowId != -1) {
 		try {
-			const tabs = await new Promise((resolve, reject) => {
-			chrome.tabs.query({ active: true, currentWindow: true }, resolve);
-			});
-			const latestTab = await readLocalStorage("latestTab");
+			let tabs = await getTabs();
+			let latestTab = await readLocalStorage("latestTab");
 			latestTab.prevId = latestTab.curId;
 			latestTab.prevWinId = latestTab.curWinId;
 			latestTab.curId = tabs[0].id;
 			latestTab.curWinId = tabs[0].windowId;
 			await writeLocalStorage("latestTab", latestTab);
 	
-			const tabInfo = await readLocalStorage(String(latestTab.curId));
-			const prevTabInfo = await readLocalStorage(String(latestTab.prevId));
+			let tabInfo = await readLocalStorage(String(latestTab.curId));
+			let prevTabInfo = await readLocalStorage(String(latestTab.prevId));
 	
 			if (typeof tabInfo.action !== "undefined") {
 				if (latestTab.curWinId !== latestTab.prevWinId) {
@@ -118,8 +116,8 @@ chrome.windows.onCreated.addListener(function (window) {
 // when a tab is opened, set appropriate info for latestTab
 // tabs.onActivated handles tabs activities in the same chrome window
 chrome.tabs.onActivated.addListener(async function (activeInfo) {
-	const tabs = await getTabs();
-	const latestTab = await readLocalStorage('latestTab');
+	let tabs = await getTabs();
+	let latestTab = await readLocalStorage('latestTab');
   
 	// If the latestTab does not exist, set it for the first time
 	if (!latestTab) {
@@ -133,7 +131,7 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 	}
   
 	// Update the latestTab with the current values
-	const updatedLatestTab = {
+	let updatedLatestTab = {
 		...latestTab,
 		prevId: latestTab.curId,
 		prevWinId: latestTab.curWinId,
@@ -143,13 +141,13 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 	await writeLocalStorage('latestTab', updatedLatestTab);
   
 	// If the tab is revisited
-	const tabInfo = await readLocalStorage(String(updatedLatestTab.curId));
-	const prevTabInfo = await readLocalStorage(String(updatedLatestTab.prevId));
+	let tabInfo = await readLocalStorage(String(updatedLatestTab.curId));
+	let prevTabInfo = await readLocalStorage(String(updatedLatestTab.prevId));
 	if (typeof tabInfo.action === 'undefined') {
 	  	return;
 	}
   
-	const closedTabId = await readLocalStorage('closedTabId');
+	let closedTabId = await readLocalStorage('closedTabId');
 	let action = 'revisit';
 	if (closedTabId !== -1) {
 	  	action = 'revisit after previous tab closed';
@@ -284,7 +282,8 @@ async function readLocalStorage(key) {
 	return new Promise((resolve, reject) => {
 		chrome.storage.local.get([key], function (result) {
 			if (result[key] === undefined) {
-				reject(new Error("Key not found in chrome storage"));
+				console.log("Key not found in chrome storage");
+				resolve(undefined);
 			} else {
 				resolve(result[key]);
 			}
@@ -316,7 +315,8 @@ function newTabChecker(id) {
 					resolve(tabs[i]);
 				}
 			}
-			reject(new Error("Tab not found"));
+			console.log("Tab not found");
+			resolve(null);
 		});
 	});
 }
@@ -349,145 +349,147 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 					console.log(tabId, e);
 				}
 				// console.log(ref);
-
-				let curWindow = "curWindowId " + tab.windowId.toString();
-				getStorageKeyValue(curWindow, function(curWindowInfo){
-					if (typeof curWindowInfo !== 'undefined') {
-						// console.log(curWindowInfo.recording);
-						getStorageKeyValue(tabId.toString(), function (value) {
-							if (typeof value === 'undefined') {
-								getStorageKeyValue('latestTab', function (latestTabInfo) {
-									// open hyperlink in new tab or omnibox search
-									if (latestTabInfo.curId === tabId) {
-										// hyperlink opened in new tab and new tab is active tab
-										// or empty new tab is active tab (for omnibox search)
-										newTabChecker(tabId, function (tab) {
-											if (tab.openerTabId) {
-												getStorageKeyValue(tab.openerTabId.toString(), function (v) {
-													if (typeof v !== 'undefined') {
-														// if there is hyperlink redirecting, then prevUrl and prevTabId exist
-														// if simply opening a new tab, then prevUrl and prevTabId don't exist
-														setStorageKey(tabId.toString(), {
-															"curUrl": tab.url,
-															"curTabId": tabId,
-															"prevUrl": ((tab.url !== newTab) ? v.curUrl : ""),
-															"prevTabId": ((tab.url !== newTab) ? tab.openerTabId : tabId),
-															"curTitle": tab.title,
-															"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-															"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-															"time": timeStamp()
-														});
-		
-														if(tab.url !== newTab) {
-															setStorageKey('transitionsList', []);
-														}
-													}
-													else {
-														// this case happens when reloading the extension
-														setStorageKey(tabId.toString(), {
-															"curUrl": tab.url,
-															"curTabId": tabId,
-															"prevUrl": "",
-															"prevTabId": tabId,
-															"curTitle": tab.title,
-															"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-															"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-															"time": timeStamp()
-														});
-		
-														if(tab.url !== newTab) {
-															setStorageKey('transitionsList', []);
-														}
-													}
-												});
-											}
-											else {
-												if(typeof latestTabInfo.prevId == 'undefined') {
-													// this case happens when extension first installs (query a new tab)
-													setStorageKey(tabId.toString(), {
-														"curUrl": tab.url,
-														"curTabId": tabId,
-														"prevUrl": "",
-														"prevTabId": tabId,
-														"curTitle": tab.title,
-														"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-														"action": ((tab.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-														"time": timeStamp()
-													});
-		
-													if(tab.url !== newTab) {
-														setStorageKey('transitionsList', []);
-													}
-												} 
-												if(typeof latestTabInfo.prevId !== 'undefined') {
-													getStorageKeyValue(String(latestTabInfo.prevId), function (v) {
-														if (typeof v !== 'undefined') {
-															// this case happens when hyperlink opened in new window
-															setStorageKey(tabId.toString(), {
-																"curUrl": tab.url,
-																"curTabId": tabId,
-																"prevUrl": v.curUrl,
-																"prevTabId": latestTabInfo.prevId,
-																"curTitle": tab.title,
-																"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-																"action": ((tab.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-																"time": timeStamp()
-															});
-		
-															if(tab.url !== newTab) {
-																setStorageKey('transitionsList', []);
-															}
-														}
-													});
-												}
-											}
-										});
-									}
-									else {
-										// hyperlink opened in new tab but new tab is not active tab
-										getStorageKeyValue(latestTabInfo.curId.toString(), function (v) {
-											if (typeof v !== 'undefined') {
-												setStorageKey(tabId.toString(), {
-													"curUrl": tab.url,
-													"curTabId": tabId,
-													"prevUrl": v.curUrl,
-													"prevTabId": latestTabInfo.curId,
-													"curTitle": tab.title,
-													"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-													"action": ((tab.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-													"time": timeStamp()
-												});
-		
-												if(tab.url !== newTab) {
-													setStorageKey('transitionsList', []);
-												}
-											}
-										});
-									}
-								});
-							}
-							else {
-								// navigate between urls in a same tab	
-								getStorageKeyValue('transitionsList', function (transition) {
-									value.action = "navigate between urls in the same tab";
-									if(transition.length > 0) {
-										value.action = "navigate between urls in the same tab (" + transition[0] + ")";
-									}
-									value.prevUrl = value.curUrl;
-									value.curUrl = tab.url;
-									value.prevTabId = tab.id;
-									value.curTitle = tab.title;
-									value.time = timeStamp();
-									setStorageKey(tabId.toString(), value);
-									setStorageKey('transitionsList', []);
-								});
-							}
-						});
-					}
-				});
+				processTab(tab, tabId);
 			});
 	}
 });
+
+async function processTab(tabInfo, tabId){
+	let curWindow = "curWindowId " + tabInfo.windowId.toString();
+	let curWindowInfo = await readLocalStorage(curWindow);
+	if(typeof curWindowInfo === 'undefined') {
+		return;
+	}
+
+	let curTabInfo = await readLocalStorage(tabId.toString());
+	if(typeof curTabInfo === 'undefined') {
+		let latestTabInfo = await readLocalStorage('latestTab');
+		if(typeof latestTabInfo === 'undefined') {
+			return;
+		}
+
+		if(latestTabInfo.curId === tabId) {
+			let newTabInfo = await newTabChecker(tabId);
+			if(newTabInfo === null) {
+				return;
+			}
+
+			// hyperlink opened in new tab and new tab is active tab
+			// or empty new tab is active tab (for omnibox search)
+			if(newTabInfo.openerTabId) {
+				let v = await readLocalStorage(newTabInfo.openerTabId.toString());
+				if(typeof v !== 'undefined') {
+					// if there is hyperlink redirecting, then prevUrl and prevTabId exist
+					// if simply opening a new tab, then prevUrl and prevTabId don't exist
+					await writeLocalStorage(tabId.toString(), {
+						"curUrl": newTabInfo.url,
+						"curTabId": tabId,
+						"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+						"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+						"curTitle": newTabInfo.title,
+						"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+						"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+						"time": timeStamp()
+					});
+
+					if(newTabInfo.url !== newTab) {
+						await writeLocalStorage('transitionsList', []);
+					}
+				} else {
+					// this case happens when reloading the extension
+					await writeLocalStorage(tabId.toString(), {
+						"curUrl": newTabInfo.url,
+						"curTabId": tabId,
+						"prevUrl": "",
+						"prevTabId": tabId,
+						"curTitle": newTabInfo.title,
+						"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+						"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+						"time": timeStamp()
+					});
+
+					if(newTabInfo.url !== newTab) {
+						await writeLocalStorage('transitionsList', []);
+					}
+				}
+			} else {
+				if(typeof latestTabInfo.prevId === 'undefined') {
+					// this case happens when extension first installs (query a new tab)
+					await writeLocalStorage(tabId.toString(), {
+						"curUrl": newTabInfo.url,
+						"curTabId": tabId,
+						"prevUrl": "",
+						"prevTabId": tabId,
+						"curTitle": newTabInfo.title,
+						"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+						"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+						"time": timeStamp()
+					});
+
+					if(newTabInfo.url !== newTab) {
+						await writeLocalStorage('transitionsList', []);
+					}
+				} else {
+					// this case happens when hyperlink opened in new window
+					let x = await readLocalStorage(latestTabInfo.prevId.toString());
+					if(typeof x === 'undefined') {
+						return;
+					}
+
+					await writeLocalStorage(tabId.toString(), {
+						"curUrl": newTabInfo.url,
+						"curTabId": tabId,
+						"prevUrl": x.curUrl,
+						"prevTabId": latestTabInfo.prevId,
+						"curTitle": newTabInfo.title,
+						"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+						"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+						"time": timeStamp()
+					});
+
+					if(newTabInfo.url !== newTab) {
+						await writeLocalStorage('transitionsList', []);
+					}
+				}
+			}
+		} else {
+			// hyperlink opened in new tab but new tab is not active tab
+			let y = await readLocalStorage(latestTabInfo.curId.toString());
+			if(typeof y === 'undefined') {
+				return;
+			}
+
+			await writeLocalStorage(tabId.toString(), {
+				"curUrl": tabInfo.url,
+				"curTabId": tabId,
+				"prevUrl": y.curUrl,
+				"prevTabId": latestTabInfo.curId,
+				"curTitle": tabInfo.title,
+				"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+				"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+				"time": timeStamp()
+			});
+
+			if(tabInfo.url !== newTab) {
+				await writeLocalStorage('transitionsList', []);
+			}
+		}
+	} else {
+		// navigate between urls in a same tab
+		let transition = await readLocalStorage('transitionsList');
+		curTabInfo.action = "navigate between urls in the same tab";
+		if(transition.length > 0) {
+			curTabInfo.action = "navigate between urls in the same tab (" + transition[0] + ")";
+		}
+		curTabInfo.prevUrl = curTabInfo.curUrl;
+		curTabInfo.curUrl = tabInfo.url;
+		curTabInfo.prevTabId = tabInfo.id;
+		curTabInfo.curTitle = tabInfo.title;
+		curTabInfo.time = timeStamp();
+		await writeLocalStorage(tabId.toString(), curTabInfo);
+		await writeLocalStorage('transitionsList', []);
+	}
+}
 
 chrome.alarms.onAlarm.addListener(function(alarm) {
 	if (alarm.name === "postDataToNode") {
