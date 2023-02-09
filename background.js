@@ -4,6 +4,7 @@
 const newTab = "chrome://newtab/";
 const extensionTab = "chrome://extensions/";
 let portNum = 4000;
+console.log('This is background service worker');
 
 chrome.alarms.create("postDataToNode", {
 	delayInMinutes: 0.1,
@@ -11,64 +12,76 @@ chrome.alarms.create("postDataToNode", {
 });
 
 // only reset the storage when one chrome window first starts up
-chrome.windows.getAll({ populate: false, windowTypes: ['normal'] }, function (windows) {
-	if (windows.length == 1) {
-		chrome.runtime.onStartup.addListener(function () {
-			chrome.storage.local.clear();
-			setStorageKey('tableData', []);
-			setStorageKey('latestTab', {});
-			setStorageKey('closedTabId', -1);
-			setStorageKey('transitionsList', []);
-			setStorageKey('port', portNum.toString());
-			setStorageKey('curWindowId ' + windows[0].id.toString(), {
+chrome.runtime.onStartup.addListener(async function () {
+	try {
+		let windows = await getWindows();
+		if(windows.length === 1){
+			await writeLocalStorage('latestTab', {});
+			await writeLocalStorage('closedTabId', -1);
+			await writeLocalStorage('transitionsList', []);
+			await writeLocalStorage('port', portNum.toString());
+			await writeLocalStorage('curWindowId ' + windows[0].id.toString(), {
 				"tabsList": [],
 				"recording": false
 			});
-		});
+		}
+	} catch (error) {
+		console.err(error);
 	}
 });
 
-console.log('This is background service worker - edit me!');
+async function getWindows() {
+	return new Promise((resolve, reject) => {
+		chrome.windows.getAll({ populate: false, windowTypes: ['normal'] }, function (windows) {
+			resolve(windows);
+		});
+	});
+}
 
 // on install, if there is only chrome://extensions/ in the browser window, then make a new tab
-chrome.runtime.onInstalled.addListener(function (details) {
-	if (details.reason === 'install') {
-		chrome.tabs.query({ currentWindow: true }, function (tabs) {
+chrome.runtime.onInstalled.addListener(async function (details) {
+	try {
+		await chrome.storage.local.clear();
+		await writeLocalStorage('tableData', []);
+		await writeLocalStorage('latestTab', {});
+		await writeLocalStorage('closedTabId', -1);
+		await writeLocalStorage('transitionsList', []);
+		await writeLocalStorage('port', portNum.toString());
+
+		if (details.reason === 'install') {
+			let tabs = await getTabs();
 			if (tabs.length === 1 && tabs[0].url === extensionTab) {
 				chrome.tabs.create({ url: newTab });
 			}
-			chrome.storage.local.clear();
-			setStorageKey('tableData', []);
-			setStorageKey('latestTab', {});
-			setStorageKey('closedTabId', -1);
-			setStorageKey('transitionsList', []);
-			setStorageKey('port', portNum.toString());
-			setStorageKey('curWindowId ' + tabs[0].windowId.toString(), {
+			await writeLocalStorage('curWindowId ' + tabs[0].windowId.toString(), {
 				"tabsList": [],
 				"recording": false
 			});
-		});
+		}
+		else {
+			let lastFocusedWindow = await getLastFocusedWindow();
+			await writeLocalStorage('curWindowId ' + lastFocusedWindow.id.toString(), {
+				"tabsList": [],
+				"recording": false
+			});
+		};
+	} catch (error) {
+		console.error(error);
 	}
-	else {
-		chrome.windows.getLastFocused({ populate: false, windowTypes: ['normal'] }, function (currentWindow) {
-			chrome.storage.local.clear();
-			setStorageKey('tableData', []);
-			setStorageKey('latestTab', {});
-			setStorageKey('closedTabId', -1);
-			setStorageKey('transitionsList', []);
-			setStorageKey('port', portNum.toString());
-			setStorageKey('curWindowId ' + currentWindow.id.toString(), {
-				"tabsList": [],
-				"recording": false
-			});
-		});
-	};
 });
+
+async function getLastFocusedWindow() {
+	return new Promise((resolve, reject) => {
+		chrome.windows.getLastFocused({ populate: false, windowTypes: ['normal'] }, function (currentWindow) {
+			resolve(currentWindow);
+		});
+	});
+}
 
 // check windows focus since tabs.onActivated does not get triggered when navigating between different chrome windows
 chrome.windows.onFocusChanged.addListener(async function (windowId) {
-	if (windowId != -1) {
-		try {
+	try {	
+		if (windowId !== -1) {
 			let tabs = await getTabs();
 			let latestTab = await readLocalStorage("latestTab");
 			latestTab.prevId = latestTab.curId;
@@ -78,39 +91,47 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 			await writeLocalStorage("latestTab", latestTab);
 	
 			let tabInfo = await readLocalStorage(String(latestTab.curId));
+			if (typeof tabInfo === "undefined") {
+				return;
+			}
+
 			let prevTabInfo = await readLocalStorage(String(latestTab.prevId));
-	
-			if (typeof tabInfo.action !== "undefined") {
-				if (latestTab.curWinId !== latestTab.prevWinId) {
-					if (tabInfo.curUrl !== prevTabInfo.curUrl) {
-						await writeLocalStorage(String(latestTab.curId), {
-							curUrl: tabInfo.curUrl,
-							curTabId: tabInfo.curTabId,
-							prevUrl: prevTabInfo.curUrl,
-							prevTabId: prevTabInfo.curTabId,
-							curTitle: tabs[0].title,
-							recording: tabInfo.recording,
-							action: "revisit",
-							time: timeStamp(),
-						});
-					}
+			if (typeof prevTabInfo === "undefined") {
+				return;
+			}
+
+			if (latestTab.curWinId !== latestTab.prevWinId) {
+				if (tabInfo.curUrl !== prevTabInfo.curUrl) {
+					await writeLocalStorage(String(latestTab.curId), {
+						curUrl: tabInfo.curUrl,
+						curTabId: tabInfo.curTabId,
+						prevUrl: prevTabInfo.curUrl,
+						prevTabId: prevTabInfo.curTabId,
+						curTitle: tabs[0].title,
+						recording: tabInfo.recording,
+						action: "revisit",
+						time: timeStamp(),
+					});
 				}
 			}
-		} catch (error) {
-			console.error(error);
 		}
+	} catch (error) {
+		console.error(error);
 	}
-}, { windowTypes: ["normal"] });  
+}, { windowTypes: ["normal"] });
 
-chrome.windows.onCreated.addListener(function (window) {
-	getStorageKeyValue('curWindowId ' + window.id.toString(), function (result) {
-		if(typeof result === 'undefined') {
-			setStorageKey('curWindowId ' + window.id.toString(), {
+chrome.windows.onCreated.addListener(async function (window) {
+	try {
+		let result = await readLocalStorage('curWindowId ' + window.id.toString());
+		if (typeof result === 'undefined') {
+			await writeLocalStorage('curWindowId ' + window.id.toString(), {
 				"tabsList": [],
 				"recording": false
 			});
 		}
-	});
+	} catch (error) {
+		console.error(error);
+	}
 });
 
 // when a tab is opened, set appropriate info for latestTab
@@ -143,7 +164,7 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 	// If the tab is revisited
 	let tabInfo = await readLocalStorage(String(updatedLatestTab.curId));
 	let prevTabInfo = await readLocalStorage(String(updatedLatestTab.prevId));
-	if (typeof tabInfo.action === 'undefined') {
+	if (typeof tabInfo === 'undefined' || typeof prevTabInfo === 'undefined') {
 	  	return;
 	}
   
@@ -187,23 +208,24 @@ async function getTabs() {
 }
 
 //on tab removed
-chrome.tabs.onRemoved.addListener(function (tabId, removeInfo) {
-	setStorageKey('closedTabId', tabId);
+chrome.tabs.onRemoved.addListener(async function (tabId, removeInfo) {
+	await writeLocalStorage('closedTabId', tabId);
 
 	let curWindow = "curWindowId " + removeInfo.windowId.toString();
-	getStorageKeyValue(curWindow, function (curWindowInfo) {
-		if(typeof curWindowInfo !== 'undefined') {
-			// check if the tab is in curWindowInfo.tabsList
-			if(curWindowInfo.tabsList.includes(tabId)) {
-				// remove the tab from the list
-				let index = curWindowInfo.tabsList.indexOf(tabId);
-				curWindowInfo.tabsList.splice(index, 1);
+	let curWindowInfo = await readLocalStorage(curWindow);
+	if (typeof curWindowInfo === 'undefined') {
+		return;
+	}
 
-				// update curWindowInfo
-				setStorageKey(curWindow, curWindowInfo);
-			}
-		}
-	});
+	// check if the tab is in curWindowInfo.tabsList
+	if(curWindowInfo.tabsList.includes(tabId)) {
+		// remove the tab from the list
+		let index = curWindowInfo.tabsList.indexOf(tabId);
+		curWindowInfo.tabsList.splice(index, 1);
+
+		// update curWindowInfo
+		await writeLocalStorage(curWindow, curWindowInfo);
+	}
 });
 
 chrome.storage.onChanged.addListener(function (changes) {
@@ -230,10 +252,13 @@ chrome.storage.onChanged.addListener(function (changes) {
 	});
 });
   
-function handleTableData(newData) {
-	getStorageKeyValue('tableData', (value) => {
-		setStorageKey('tableData', value.length === 0 ? newData : value.concat(newData));
-	});
+async function handleTableData(newData) {
+	let tableData = await readLocalStorage('tableData');
+	if (tableData.length === 0) {
+		await writeLocalStorage('tableData', newData);
+		return;
+	}
+	await writeLocalStorage('tableData', tableData.concat(newData));
 }
   
 
@@ -267,17 +292,19 @@ function timeStamp() {
 }
 
 // Sets a key and stores its value into the storage
-function setStorageKey(key, value) {
-	chrome.storage.local.set({ [key]: value });
-}
-
-// Gets a key value from the storage
-function getStorageKeyValue(key, onGetStorageKeyValue) {
-	chrome.storage.local.get([key], function (result) {
-		onGetStorageKeyValue(result[key]);
+async function writeLocalStorage(key, value) {
+	return new Promise((resolve, reject) => {
+		chrome.storage.local.set({ [key]: value }, function () {
+			if (chrome.runtime.lastError) {
+				reject(new Error(chrome.runtime.lastError.message));
+			} else {
+				resolve();
+			}
+		});
 	});
 }
 
+// Gets a key value from the storage
 async function readLocalStorage(key) {
 	return new Promise((resolve, reject) => {
 		chrome.storage.local.get([key], function (result) {
@@ -291,17 +318,7 @@ async function readLocalStorage(key) {
 	});
 }
   
-async function writeLocalStorage(key, value) {
-	return new Promise((resolve, reject) => {
-		chrome.storage.local.set({ [key]: value }, function () {
-			if (chrome.runtime.lastError) {
-				reject(new Error(chrome.runtime.lastError.message));
-			} else {
-				resolve();
-			}
-		});
-	});
-}
+
 
 function docReferrer() {
 	return document.referrer;
@@ -321,21 +338,25 @@ function newTabChecker(id) {
 	});
 }
 
-chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 	if (changeInfo.status === 'loading') {
 		// e.g. transtionsList = ['typed', 'link', 'link'] for Facebook
 		// some events can be grouped together during web navigation 
 		// => transitionsList[0] is the correct transition type
-		chrome.history.getVisits({ url: tab.url }, function (visits) {
-			if(visits.length > 0) {
-				getStorageKeyValue('transitionsList', function (transitionList) {
-					let lastVisit = visits[visits.length - 1];
-					let transitionType = lastVisit.transition;
-					transitionList.push(transitionType);
-					setStorageKey('transitionsList', transitionList);
-				});
-			}
-		});
+		let historyVisits = await getHistoryVisits(tab.url);
+		if (historyVisits === null) {
+			return;
+		}
+
+		let transitionList = await readLocalStorage('transitionsList');
+		if (transitionList === undefined) {
+			return;
+		}
+
+		let lastVisit = historyVisits[historyVisits.length - 1];
+		let transitionType = lastVisit.transition;
+		transitionList.push(transitionType);
+		await writeLocalStorage('transitionsList', transitionList);
 	}
 
 	if (changeInfo.status === 'complete') {
@@ -353,6 +374,18 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 			});
 	}
 });
+
+async function getHistoryVisits(url) {
+	return new Promise((resolve, reject) => {
+		chrome.history.getVisits({ url: url }, function (visits) {
+			if (visits.length > 0) {
+				resolve(visits);
+			} else {
+				resolve(null);
+			}
+		});
+	});
+}
 
 async function processTab(tabInfo, tabId){
 	let curWindow = "curWindowId " + tabInfo.windowId.toString();
@@ -491,40 +524,44 @@ async function processTab(tabInfo, tabId){
 	}
 }
 
-chrome.alarms.onAlarm.addListener(function(alarm) {
+chrome.alarms.onAlarm.addListener(async function(alarm) {
 	if (alarm.name === "postDataToNode") {
-		getStorageKeyValue('tableData', function (value) {
-			if (typeof value !== 'undefined') {
-				if (value.length > 0) {
-					console.log("exporting data to user's working project folder");
-					let copyData = value;
+		let tableData = await readLocalStorage('tableData');
+		if (typeof tableData === 'undefined') {
+			return;
+		}
 
-					// remove the 'recording' keys from the newData
-					copyData = copyData.map(el => {
-						if (el.recording === true) delete el.recording
-						return el;
-					});
+		if (tableData.length > 0) {
+			console.log("exporting data to user's working project folder");
+			let copyData = tableData;
 
-					let result = JSON.stringify(copyData, undefined, 4);
-					// asyncPostCall(result);
-					console.log(result);
-				}
-			}
-		});
+			// remove the 'recording' keys from the newData
+			copyData = copyData.map(el => {
+				if (el.recording === true) delete el.recording
+				return el;
+			});
+
+			let result = JSON.stringify(copyData, undefined, 4);
+			asyncPostCall(result);
+			// console.log(result);
+		}
 	}
 });
 
-const asyncPostCall = async (data) => {
+async function asyncPostCall(data) {
 	try {
-		getStorageKeyValue('port', function (num) {
-			fetch("http://localhost:" + num + "/logWebData", {
-				method: 'POST',
-				headers: {
-					'Accept': 'application/json, text/plain, */*',
-					'Content-Type': 'application/json'
-				},
-				body: data
-			});
+		let port = await readLocalStorage('port');
+		if (typeof port === 'undefined') {
+			return;
+		}
+
+		fetch(`http://localhost:${port}/logWebData`, {
+			method: 'POST',
+			headers: {
+				'Accept': 'application/json, text/plain, */*',
+				'Content-Type': 'application/json'
+			},
+			body: data
 		});
 	} catch(error) {
 		console.log(error);
