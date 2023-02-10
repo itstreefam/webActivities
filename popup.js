@@ -103,29 +103,35 @@ window.onload = function () {
       div.className = "url";
 
       getStorageKeyValue(id, function (value) {
-        if (typeof value === 'undefined') {
-          toggle.checked = false;
-          setStorageKey(id.toString(), {
-            "curUrl": url,
-            "curTabId": id,
-            "prevUrl": "",
-            "prevTabId": id,
-            "curTitle": title,
-            "recording": toggle.checked,
-            "action": "add opened tab that is not in storage",
-            "time": timeStamp()
+          if (typeof value === 'undefined') {
+            getStorageKeyValue("curWindowId " + tab.windowId.toString(), function (curWindowInfo) {
+              if (typeof curWindowInfo !== 'undefined') {
+                toggle.checked = curWindowInfo.recording;
+              } else {
+                toggle.checked = false;
+              }
+              setStorageKey(id.toString(), {
+                "curUrl": url,
+                "curTabId": id,
+                "prevUrl": "",
+                "prevTabId": id,
+                "curTitle": title,
+                "recording": toggle.checked,
+                "action": "add opened tab that is not in storage",
+                "time": timeStamp()
+              });
           });
-        }
-        else {
-          toggle.checked = value.recording;
-        }
+          }
+          else {
+            toggle.checked = value.recording;
+          }
 
-        // add the title to the div
-        let textNode = document.createTextNode(title);
-        div.appendChild(textNode);
+          // add the title to the div
+          let textNode = document.createTextNode(title);
+          div.appendChild(textNode);
 
-        // add the toggle switch to the div
-        div.appendChild(toggle);
+          // add the toggle switch to the div
+          div.appendChild(toggle);
       });
 
       // add the div to the ul
