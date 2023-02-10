@@ -12,9 +12,21 @@ https://user-images.githubusercontent.com/44308446/172900037-66332410-a1e5-4999-
 
 ## Extension Settings
 
-Clone this reprository. Then you change directory to 'node' folder under this repository and run "npm i" to install all dependencies. You might also need to "npm install express" and "npm install cors" if "npm i" did not install those two. After that, update the variable 'user_dir' in node/index.js with a folder path that the you plan to perform their tasks/work on (i.e. the workspace of "[Extension Development Host]" VS Code window from codeHistories). 
+1.  Clone this reprository. 
 
-Run "node index.js" inside the node folder to start up the localhost node server that can capture the web data information and communicate them to your working folder. Finally, load the extension on Google Chrome by visiting chrome://extensions/, turning on Developer mode, and choosing the option "Load unpacked," and selecting the cloned "webActivities" directory on your computer.
+2.  From the main directory of webActivities, go inside the 'node' folder and run ```npm i``` to install all dependencies. You might also need to ```npm install express``` and ```npm install cors``` if ```npm i``` did not install those two. 
+
+3.  Update the variable 'user_dir' in node/index.js with a folder path that you plan to perform your tasks/work on (i.e. the same workspace as the one in "[Extension Development Host]" VS Code window from codeHistories). 
+
+4.  Run ```node index.js``` inside the node folder to start up a localhost node server that can capture the web data information and communicate them to your working folder. Keep this node server running in the background.
+
+5.  Open Google Chrome and go to ```chrome://extensions/```
+
+6.  Turn on Developer mode (top right of the browser)
+
+7.  Choose the option "Load unpacked" (under the big word Extension) and select the cloned "webActivities" directory as the folder.
+
+<b>``` By default, all tabs recording is disabled, so make sure to turn them on for the tab/window you want to record. ```</b>
 
 The user can start browsing Google Chrome as usual as the web urls are recorded and saved in a file named 'webData' in the 'user_dir.' 
 
