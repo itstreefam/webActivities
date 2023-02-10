@@ -102,16 +102,22 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 
 			if (latestTab.curWinId !== latestTab.prevWinId) {
 				if (tabInfo.curUrl !== prevTabInfo.curUrl) {
-					await writeLocalStorage(String(latestTab.curId), {
-						curUrl: tabInfo.curUrl,
-						curTabId: tabInfo.curTabId,
-						prevUrl: prevTabInfo.curUrl,
-						prevTabId: prevTabInfo.curTabId,
-						curTitle: tabs[0].title,
-						recording: tabInfo.recording,
-						action: "revisit",
-						time: timeStamp(),
-					});
+					let curWindowInfo = await readLocalStorage('curWindowId ' + latestTab.curWinId.toString());
+					let prevWindowInfo = await readLocalStorage('curWindowId ' + latestTab.prevWinId.toString());
+
+					// only record transitions between two windows if both windows are recording
+					if (curWindowInfo.recording && prevWindowInfo.recording) {
+						await writeLocalStorage(String(latestTab.curId), {
+							curUrl: tabInfo.curUrl,
+							curTabId: tabInfo.curTabId,
+							prevUrl: prevTabInfo.curUrl,
+							prevTabId: prevTabInfo.curTabId,
+							curTitle: tabs[0].title,
+							recording: tabInfo.recording,
+							action: "revisit",
+							time: timeStamp(),
+						});
+					}
 				}
 			}
 		}
@@ -137,6 +143,8 @@ chrome.windows.onCreated.addListener(async function (window) {
 // when a tab is opened, set appropriate info for latestTab
 // tabs.onActivated handles tabs activities in the same chrome window
 chrome.tabs.onActivated.addListener(async function (activeInfo) {
+	// console.log("onActivated: ", activeInfo);
+
 	let tabs = await getTabs();
 	let latestTab = await readLocalStorage('latestTab');
   
@@ -181,6 +189,11 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 	if (tabInfo.curUrl === prevTabInfo.curUrl) {
 	  	return;
 	}
+
+	// only record transitions between two tabs if both tabs are recording
+	if (!tabInfo.recording || !prevTabInfo.recording) {
+		return;
+	}
   
 	// Set the updated tab info
 	await writeLocalStorage(String(updatedLatestTab.curId), {
@@ -196,6 +209,42 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
   
 	if (closedTabId !== -1) {
 		await writeLocalStorage('closedTabId', -1);
+	}
+});
+
+chrome.tabs.onCreated.addListener(async function (tab) {
+	// this event gets triggered more often in edge than chrome
+	try {
+		let curWindow = "curWindowId " + tab.windowId.toString();
+		let curWindowInfo = await readLocalStorage(curWindow);
+		if (typeof curWindowInfo === 'undefined') {
+			return;
+		}
+
+		// if tab is newtab, write to local storage
+		if (tab.url === newTab) {
+			await writeLocalStorage(String(tab.id), {
+				curUrl: tab.url,
+				curTabId: tab.id,
+				prevUrl: "",
+				prevTabId: tab.id,
+				curTitle: tab.title,
+				recording: curWindowInfo.recording,
+				action: "empty new tab",
+				time: timeStamp(),
+			});
+		}
+
+		// check if the tab is in curWindowInfo.tabsList
+		if(!curWindowInfo.tabsList.includes(tab.id)) {
+			// add the tab to the list
+			curWindowInfo.tabsList.push(tab.id);
+			
+			// update curWindowInfo
+			await writeLocalStorage(curWindow, curWindowInfo);
+		}
+	} catch (error) {
+		console.log(error);
 	}
 });
   
@@ -260,28 +309,21 @@ async function handleTableData(newData) {
 	}
 	await writeLocalStorage('tableData', tableData.concat(newData));
 }
-  
 
 function objCompare(obj1, obj2) {
 	if (typeof obj1 !== 'undefined' && typeof obj2 !== 'undefined') {
-		let keys1 = Object.keys(obj1);
-		let keys2 = Object.keys(obj2);
+		// create deep copy of objects
+		let o1 = { ...obj1 };
+		let o2 = { ...obj2 };
 
-		// delete the time key
-		keys1.splice(keys1.indexOf('time'), 1);
-		keys2.splice(keys2.indexOf('time'), 1);
-
-		if (keys1.length !== keys2.length) {
-			return false;
+		if(o1.hasOwnProperty('time')) {
+			delete o1.time;
+		}
+		if(o2.hasOwnProperty('time')) {
+			delete o2.time;
 		}
 
-		for (let i = 0; i < keys1.length; i++) {
-			if (obj1[keys1[i]] !== obj2[keys1[i]]) {
-				return false;
-			}
-		}
-
-		return true;
+		return JSON.stringify(o1) === JSON.stringify(o2);
 	}
 }
 
@@ -317,8 +359,6 @@ async function readLocalStorage(key) {
 		});
 	});
 }
-  
-
 
 function docReferrer() {
 	return document.referrer;
@@ -412,6 +452,7 @@ async function processTab(tabInfo, tabId){
 			if(newTabInfo.openerTabId) {
 				let v = await readLocalStorage(newTabInfo.openerTabId.toString());
 				if(typeof v !== 'undefined') {
+					// console.log('case 1');
 					// if there is hyperlink redirecting, then prevUrl and prevTabId exist
 					// if simply opening a new tab, then prevUrl and prevTabId don't exist
 					await writeLocalStorage(tabId.toString(), {
@@ -429,6 +470,7 @@ async function processTab(tabInfo, tabId){
 						await writeLocalStorage('transitionsList', []);
 					}
 				} else {
+					// console.log('case 2');
 					// this case happens when reloading the extension
 					await writeLocalStorage(tabId.toString(), {
 						"curUrl": newTabInfo.url,
@@ -447,6 +489,7 @@ async function processTab(tabInfo, tabId){
 				}
 			} else {
 				if(typeof latestTabInfo.prevId === 'undefined') {
+					// console.log('case 3');
 					// this case happens when extension first installs (query a new tab)
 					await writeLocalStorage(tabId.toString(), {
 						"curUrl": newTabInfo.url,
@@ -463,6 +506,7 @@ async function processTab(tabInfo, tabId){
 						await writeLocalStorage('transitionsList', []);
 					}
 				} else {
+					// console.log('case 4');
 					// this case happens when hyperlink opened in new window
 					let x = await readLocalStorage(latestTabInfo.prevId.toString());
 					if(typeof x === 'undefined') {
@@ -486,6 +530,7 @@ async function processTab(tabInfo, tabId){
 				}
 			}
 		} else {
+			// console.log('case 5');
 			// hyperlink opened in new tab but new tab is not active tab
 			let y = await readLocalStorage(latestTabInfo.curId.toString());
 			if(typeof y === 'undefined') {
@@ -508,6 +553,7 @@ async function processTab(tabInfo, tabId){
 			}
 		}
 	} else {
+		// console.log('case 6');
 		// navigate between urls in a same tab
 		let transition = await readLocalStorage('transitionsList');
 		curTabInfo.action = "navigate between urls in the same tab";
