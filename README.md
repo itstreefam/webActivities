@@ -10,7 +10,7 @@ https://user-images.githubusercontent.com/44308446/172900037-66332410-a1e5-4999-
 
 * Node JS
 
-## Extension Settings
+## Extension Setup
 
 1.  Clone this reprository. 
 
@@ -25,6 +25,8 @@ https://user-images.githubusercontent.com/44308446/172900037-66332410-a1e5-4999-
 6.  Turn on Developer mode (top right of the browser)
 
 7.  Choose the option "Load unpacked" (under the big word Extension) and select the cloned "webActivities" directory as the folder.
+
+## Important notes
 
 <b>``` By default, all tabs recording is disabled, so make sure to turn them on for the tab/window you want to record. ```</b>
 
@@ -41,6 +43,10 @@ Initial release of webActivities. Basic web activity capture in the background w
 ### V1.x
 
 Updated webActivites to be compatible with MacOS, Windows, and Linux by utilizing local node server instead of native messaging. Update speed may be slightly affected depending on the size of data and workload of local server. Added free port search, but user would still need to update on extension side via popup page if the two ports don't match.
+
+### V2
+
+Refactored background.js and updated webActivities to try and keep service worker active at all times (to avoid missing data). This approach made use of chrome offscreen API ```https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension```, so chrome version needs to be 109+.
 
 ## Contact
 
