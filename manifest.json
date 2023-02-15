@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "version_name": "1.0.0",
     "manifest_version": 3,
-    "minimum_chrome_version": "88",
+    "minimum_chrome_version": "109",
     "permissions": [
         "storage",
         "webNavigation",
@@ -17,7 +17,8 @@
         "downloads",
         "nativeMessaging",
         "unlimitedStorage",
-        "alarms"
+        "alarms",
+        "offscreen"
     ],
 	"host_permissions": [
 	  "*://*/*"

@@ -11,6 +11,22 @@ chrome.alarms.create("postDataToNode", {
 	periodInMinutes: 0.15
 });
 
+// https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
+// create the offscreen document if it doesn't already exist
+async function createOffscreen() {
+	if (await chrome.offscreen.hasDocument?.()) return;
+	await chrome.offscreen.createDocument({
+		url: 'offscreen.html',
+		reasons: ['BLOBS'],
+		justification: 'keep service worker running',
+	});
+}
+
+// a message from an offscreen document every 20 second resets the inactivity timer
+chrome.runtime.onMessage.addListener(msg => {
+	if (msg.keepAlive) console.log('keepAlive');
+});
+
 // only reset the storage when one chrome window first starts up
 chrome.runtime.onStartup.addListener(async function () {
 	try {
@@ -25,6 +41,7 @@ chrome.runtime.onStartup.addListener(async function () {
 				"recording": false
 			});
 		}
+		createOffscreen();
 	} catch (error) {
 		console.err(error);
 	}
@@ -65,6 +82,8 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 				"recording": false
 			});
 		};
+
+		createOffscreen();
 	} catch (error) {
 		console.error(error);
 	}
