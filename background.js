@@ -6,11 +6,6 @@ const extensionTab = "chrome://extensions/";
 let portNum = 4000;
 console.log('This is background service worker');
 
-chrome.alarms.create("postDataToNode", {
-	delayInMinutes: 0.1,
-	periodInMinutes: 0.15
-});
-
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // create the offscreen document if it doesn't already exist
 async function createOffscreen() {
@@ -342,6 +337,10 @@ function objCompare(obj1, obj2) {
 			delete o2.time;
 		}
 
+		if(o1.action.includes('reload') && o2.action.includes('reload')) {
+			return false;
+		}
+
 		return JSON.stringify(o1) === JSON.stringify(o2);
 	}
 }
@@ -589,30 +588,6 @@ async function processTab(tabInfo, tabId){
 	}
 }
 
-chrome.alarms.onAlarm.addListener(async function(alarm) {
-	if (alarm.name === "postDataToNode") {
-		let tableData = await readLocalStorage('tableData');
-		if (typeof tableData === 'undefined') {
-			return;
-		}
-
-		if (tableData.length > 0) {
-			console.log("exporting data to user's working project folder");
-			let copyData = tableData;
-
-			// remove the 'recording' keys from the newData
-			copyData = copyData.map(el => {
-				if (el.recording === true) delete el.recording
-				return el;
-			});
-
-			let result = JSON.stringify(copyData, undefined, 4);
-			asyncPostCall(result);
-			// console.log(result);
-		}
-	}
-});
-
 async function asyncPostCall(data) {
 	try {
 		let port = await readLocalStorage('port');
@@ -632,3 +607,25 @@ async function asyncPostCall(data) {
 		console.log(error);
 	} 
 }
+
+setInterval(async function() {
+	let tableData = await readLocalStorage('tableData');
+	if (typeof tableData === 'undefined') {
+		return;
+	}
+
+	if (tableData.length > 0) {
+		console.log("exporting data to user's working project folder");
+		let copyData = tableData;
+
+		// remove the 'recording' keys from the newData
+		copyData = copyData.map(el => {
+			if (el.recording === true) delete el.recording
+			return el;
+		});
+
+		let result = JSON.stringify(copyData, undefined, 4);
+		await asyncPostCall(result);
+		// console.log(result);
+	}
+}, 2000);
