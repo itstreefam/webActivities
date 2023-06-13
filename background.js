@@ -337,6 +337,14 @@ function objCompare(obj1, obj2) {
 			delete o2.time;
 		}
 
+		if(o1.curUrl.includes('localhost') && o2.curUrl.includes('localhost')) {
+			return false;
+		}
+
+		if(o1.curUrl.includes('127.0.0.1') && o2.curUrl.includes('127.0.0.1')) {
+			return false;
+		}
+
 		if(o1.action.includes('reload') && o2.action.includes('reload')) {
 			return false;
 		}
