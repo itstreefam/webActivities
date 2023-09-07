@@ -11,6 +11,7 @@ module.exports = {
         background: './src/background.js',
         popup: ['./src/popup.js', './src/popup.css'],
         offscreen: './src/offscreen.js',
+        devtoolsdetect: './src/devtoolsdetect.js',
         // Add other entry points as needed
     },
     output: {

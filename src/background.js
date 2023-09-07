@@ -61,10 +61,10 @@ chrome.webNavigation.onCommitted.addListener((details) => {
 
         console.log("onCommitted: ", details.tabId);
 
-		chrome.scripting.executeScript({
-			files: ['devtools-detect.js'],
-			target: { tabId: details.tabId }
-		});
+		// chrome.scripting.executeScript({
+		// 	files: ['devtoolsdetect.js'],
+		// 	target: { tabId: details.tabId }
+		// });
 
         // If you want to run only when the reload finished (at least the DOM was loaded)
         // chrome.webNavigation.onCompleted.addListener(function onComplete() {
@@ -91,9 +91,8 @@ async function createOffscreen() {
 // a message from an offscreen document every 20 second resets the inactivity timer
 chrome.runtime.onMessage.addListener(msg => {
 	if (msg.keepAlive) console.log('keepAlive');
-	// if (msg.name === "beforeunload") console.log('beforeunload');
-	if (msg.devtools) console.log('Is DevTools open:', msg.devtools);
-	if (msg.devtoolsOrientation) console.log('DevTools orientation:', msg.devtoolsOrientation);
+	if (msg.devtools) console.log('is devtools open? ', msg.devtools);
+	if (!msg.devtools) console.log('is devtools open? ', msg.devtools);
 });
 
 // only reset the storage when one chrome window first starts up
