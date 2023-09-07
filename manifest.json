@@ -24,11 +24,13 @@
 	  "*://*/*"
 	],
     "background": {
-        "service_worker": "background.js",
-        "type": "module"
+        "service_worker": "./dist/background.bundle.js"
     },
     "action": {
         "default_title": "webActivities",
-        "default_popup": "popup.html"
+        "default_popup": "./dist/popup.html"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self';"
     }
 }

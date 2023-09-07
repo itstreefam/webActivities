@@ -6,6 +6,77 @@ const extensionTab = "chrome://extensions/";
 let portNum = 4000;
 console.log('This is background service worker');
 
+// const connections = {};
+
+// chrome.runtime.onConnect.addListener(function (port) {
+//   if (port.name !== "devtools-page") return;
+
+//   let extensionListener = function (message, sender, sendResponse) {
+//     // The original connection event doesn't include the tab ID of the
+//     // DevTools page, so we need to send it explicitly.
+//     if (message.name === "init") {
+//       connections[message.tabId] = port;
+//       return;
+//     }
+//   };
+
+//   // Listen to messages sent from the DevTools page
+//   port.onMessage.addListener(extensionListener);
+
+//   port.onDisconnect.addListener(function () {
+//     port.onMessage.removeListener(extensionListener);
+
+//     const tabs = Object.keys(connections);
+//     for (let i = 0, len = tabs.length; i < len; i++) {
+//       if (connections[tabs[i]] === port) {
+//         delete connections[tabs[i]];
+//         break;
+//       }
+//     }
+//   });
+// });
+
+let tabLogs = {};
+
+// chrome.webNavigation.onCompleted.addListener(function(details) {
+// 	if (!tabLogs[details.tabId]) {
+// 		tabLogs[details.tabId] = [];
+// 	}
+// 	tabLogs[details.tabId].push(`Navigated to: ${details.url}`);
+// 	console.log(tabLogs);
+// });
+
+// chrome.webNavigation.onErrorOccurred.addListener(function(details) {
+// 	if (!tabLogs[details.tabId]) {
+// 		tabLogs[details.tabId] = [];
+//   	}
+// 	tabLogs[details.tabId].push(`Error: ${details.error}`);
+// 	console.log(tabLogs);
+// });
+
+// --- On Reloading or Entering example.com --- 
+chrome.webNavigation.onCommitted.addListener((details) => {
+    if (["reload", "link", "typed", "generated"].includes(details.transitionType) &&
+        (details.url.includes("localhost") || details.url.includes("127.0.0.1"))) {
+
+        console.log("onCommitted: ", details.tabId);
+
+		chrome.scripting.executeScript({
+			files: ['devtools-detect.js'],
+			target: { tabId: details.tabId }
+		});
+
+        // If you want to run only when the reload finished (at least the DOM was loaded)
+        // chrome.webNavigation.onCompleted.addListener(function onComplete() {
+
+        //     codeAfterReloadAndFinishSomeLoading();
+
+        //     chrome.webNavigation.onCompleted.removeListener(onComplete);
+        // });
+    }
+});
+
+
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // create the offscreen document if it doesn't already exist
 async function createOffscreen() {
@@ -20,6 +91,9 @@ async function createOffscreen() {
 // a message from an offscreen document every 20 second resets the inactivity timer
 chrome.runtime.onMessage.addListener(msg => {
 	if (msg.keepAlive) console.log('keepAlive');
+	// if (msg.name === "beforeunload") console.log('beforeunload');
+	if (msg.devtools) console.log('Is DevTools open:', msg.devtools);
+	if (msg.devtoolsOrientation) console.log('DevTools orientation:', msg.devtoolsOrientation);
 });
 
 // only reset the storage when one chrome window first starts up
@@ -405,7 +479,21 @@ function newTabChecker(id) {
 }
 
 chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
-	if (changeInfo.status === 'loading') {
+	console.log("onUpdated: ", changeInfo);
+
+	// chrome.tabs.get(tabId, function(tab){
+    //     var y = tab.url;
+	// 	console.log(y);
+	// 	if(y.includes("localhost") || y.includes("127.0.0.1")) {
+	// 		chrome.scripting.executeScript({
+	// 			files: ['track-auto-refresh.js'],
+	// 			target: { tabId: tabId },
+	// 			injectImmediately: true
+	// 		});
+	// 	}
+	// });
+
+	/*if (changeInfo.status === 'loading') {
 		// e.g. transtionsList = ['typed', 'link', 'link'] for Facebook
 		// some events can be grouped together during web navigation 
 		// => transitionsList[0] is the correct transition type
@@ -438,7 +526,7 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 				// console.log(ref);
 				processTab(tab, tabId);
 			});
-	}
+	}*/
 });
 
 async function getHistoryVisits(url) {
