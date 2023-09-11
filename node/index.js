@@ -15,7 +15,7 @@ portfinder.getPortPromise()
         //
         let time = performance.now();
 
-        const user_dir = String.raw`/home/tri/Desktop/test`;
+        const user_dir = String.raw`C:\Users\thien\Desktop\test-react\steam-clone`;
 
         const app = express();
 

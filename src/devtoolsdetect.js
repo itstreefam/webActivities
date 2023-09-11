@@ -6,15 +6,10 @@ window.onload = function() {
     // // Check if it's open
     // console.log('Is DevTools open:', devtools.isOpen);
     chrome.runtime.sendMessage({devtools: devtools.isOpen});
-
-    // // Check it's orientation, `undefined` if not open
-    // console.log('DevTools orientation:', devtools.orientation);
-    // chrome.runtime.sendMessage({devtoolsOrientation: devtools.orientation});
-
+    
     // Get notified when it's opened/closed or orientation changes
     window.addEventListener('devtoolschange', event => {
-        console.log('Is DevTools open:', event.detail.isOpen);
-        
+        // console.log('Is DevTools open:', event.detail.isOpen);
         chrome.runtime.sendMessage({devtools: event.detail.isOpen});
     });
 }

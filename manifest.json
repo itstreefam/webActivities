@@ -39,9 +39,15 @@
                 "<all_urls>"
             ],
             "js": [
-                "./dist/devtoolsdetect.bundle.js"
+                "./dist/livereloaddetect.bundle.js"
             ],
             "run_at": "document_start"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["./dist/livereloaddetect.bundle.js"],
+            "matches": ["<all_urls>"]
         }
     ]
 }

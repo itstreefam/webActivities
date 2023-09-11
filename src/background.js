@@ -62,7 +62,12 @@ chrome.webNavigation.onCommitted.addListener((details) => {
         console.log("onCommitted: ", details.tabId);
 
 		// chrome.scripting.executeScript({
-		// 	files: ['devtoolsdetect.js'],
+		// 	files: ['./dist/devtoolsdetect.bundle.js'],
+		// 	target: { tabId: details.tabId }
+		// });
+
+		// chrome.scripting.executeScript({
+		// 	files: ['./dist/livereloaddetect.bundle.js'],
 		// 	target: { tabId: details.tabId }
 		// });
 
@@ -92,7 +97,9 @@ async function createOffscreen() {
 chrome.runtime.onMessage.addListener(msg => {
 	if (msg.keepAlive) console.log('keepAlive');
 	if (msg.devtools) console.log('is devtools open? ', msg.devtools);
-	if (!msg.devtools) console.log('is devtools open? ', msg.devtools);
+	if (!msg.devtools) console.log('is devtools open? ', false);
+	if (msg.name == "beforeunload") console.log('navigation type: ');
+	if (msg.name == "websocket") console.log('websocket message: ', msg.data);
 });
 
 // only reset the storage when one chrome window first starts up

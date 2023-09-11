@@ -23,6 +23,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "devtools-detect": "^4.0.1"
+    "devtools-detect": "^4.0.1",
+    "rrweb": "^2.0.0-alpha.4"
   }
 }

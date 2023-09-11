@@ -12,6 +12,7 @@ module.exports = {
         popup: ['./src/popup.js', './src/popup.css'],
         offscreen: './src/offscreen.js',
         devtoolsdetect: './src/devtoolsdetect.js',
+        livereloaddetect: './src/livereloaddetect.js',
         // Add other entry points as needed
     },
     output: {
