@@ -39,6 +39,13 @@ console.log('This is background service worker');
 let tabLogs = {};
 
 // chrome.webNavigation.onCompleted.addListener(function(details) {
+// 	chrome.scripting.executeScript({
+//         target: {tabId: details.tabId},
+//         files: ['./dist/livereloaddetect.bundle.js']
+//     });
+// });
+
+// chrome.webNavigation.onCompleted.addListener(function(details) {
 // 	if (!tabLogs[details.tabId]) {
 // 		tabLogs[details.tabId] = [];
 // 	}
@@ -99,7 +106,6 @@ chrome.runtime.onMessage.addListener(msg => {
 	if (msg.devtools) console.log('is devtools open? ', msg.devtools);
 	if (!msg.devtools) console.log('is devtools open? ', false);
 	if (msg.name == "beforeunload") console.log('navigation type: ');
-	if (msg.name == "websocket") console.log('websocket message: ', msg.data);
 });
 
 // only reset the storage when one chrome window first starts up
