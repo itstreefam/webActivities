@@ -1,9 +1,3 @@
-// window.onbeforeunload = function() {
-//     chrome.runtime.sendMessage({name: "beforeunload"});
-//     // chrome.runtime.sendMessage({name: "beforeunload", navigationType: print_nav_timing_data()});
-//     // print_nav_timing_data();
-// };
-
 window.onload = function() {
     const rrweb = require('rrweb');
     var events = [];

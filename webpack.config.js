@@ -13,6 +13,7 @@ module.exports = {
         offscreen: './src/offscreen.js',
         devtoolsdetect: './src/devtoolsdetect.js',
         livereloaddetect: './src/livereloaddetect.js',
+        browseractive: './src/browseractive.js',
         // Add other entry points as needed
     },
     output: {

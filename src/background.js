@@ -88,7 +88,6 @@ chrome.webNavigation.onCommitted.addListener((details) => {
     }
 });
 
-
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // create the offscreen document if it doesn't already exist
 async function createOffscreen() {
@@ -105,7 +104,7 @@ chrome.runtime.onMessage.addListener(msg => {
 	if (msg.keepAlive) console.log('keepAlive');
 	if (msg.devtools) console.log('is devtools open? ', msg.devtools);
 	if (!msg.devtools) console.log('is devtools open? ', false);
-	if (msg.name == "beforeunload") console.log('navigation type: ');
+	if (msg.type) console.log(msg.type);
 });
 
 // only reset the storage when one chrome window first starts up
@@ -737,3 +736,23 @@ setInterval(async function() {
 		// console.log(result);
 	}
 }, 2000);
+
+
+const socket = new WebSocket('ws://localhost:' + portNum.toString() + '/');
+
+socket.addEventListener('open', (event) => {
+    console.log('WebSocket connection opened:', event);
+    socket.send('Hello from background.js!');
+});
+
+socket.addEventListener('message', (event) => {
+    console.log(`Received: ${event.data}`);
+});
+
+socket.addEventListener('close', (event) => {
+    console.log('WebSocket connection closed:', event);
+});
+
+socket.addEventListener('error', (error) => {
+    console.error('WebSocket Error:', error);
+});
