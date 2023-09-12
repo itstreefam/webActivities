@@ -122,6 +122,7 @@ chrome.runtime.onStartup.addListener(async function () {
 			});
 		}
 		createOffscreen();
+		defineWebSocket(portNum);
 	} catch (error) {
 		console.err(error);
 	}
@@ -162,8 +163,8 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 				"recording": false
 			});
 		};
-
 		createOffscreen();
+		defineWebSocket(portNum);
 	} catch (error) {
 		console.error(error);
 	}
@@ -422,15 +423,15 @@ function objCompare(obj1, obj2) {
 			delete o2.time;
 		}
 
-		if(o1.curUrl.includes('localhost') && o2.curUrl.includes('localhost')) {
+		if(o1.curUrl && o1.curUrl.includes('localhost') && o2.curUrl && o2.curUrl.includes('localhost')) {
 			return false;
 		}
 
-		if(o1.curUrl.includes('127.0.0.1') && o2.curUrl.includes('127.0.0.1')) {
+		if(o1.curUrl && o1.curUrl.includes('127.0.0.1') && o2.curUrl && o2.curUrl.includes('127.0.0.1')) {
 			return false;
 		}
 
-		if(o1.action.includes('reload') && o2.action.includes('reload')) {
+		if(o1.action && o1.action.includes('reload') && o2.action && o2.action.includes('reload')) {
 			return false;
 		}
 
@@ -738,21 +739,50 @@ setInterval(async function() {
 }, 2000);
 
 
-const socket = new WebSocket('ws://localhost:' + portNum.toString() + '/');
+async function defineWebSocket(portNum){
+	try {
+		const socket = new WebSocket('ws://localhost:' + portNum.toString() + '/');
+		socket.addEventListener('open', (event) => {
+			console.log('WebSocket connection opened:', event);
+			socket.send('Hello from background.js!');
+		});
 
-socket.addEventListener('open', (event) => {
-    console.log('WebSocket connection opened:', event);
-    socket.send('Hello from background.js!');
-});
+		socket.addEventListener('message', (event) => {
+			console.log('Message from server:', event.data);
+			if(event.data === 'Switched from VS Code to Chrome'){
+				// if current tab contains localhost or 127.0.0.1, then reload the page
+				chrome.tabs.query({ active: true, currentWindow: true, windowType: "normal" }, function (tabs) {
+					if(tabs.length === 0) {
+						return;
+					}
+					var y = tabs[0].url;
+					if(y.includes("localhost") || y.includes("127.0.0.1")) {
+						chrome.tabs.reload(tabs[0].id);
+					}
+				});
+			}
+		});
 
-socket.addEventListener('message', (event) => {
-    console.log(`Received: ${event.data}`);
-});
+		socket.addEventListener('close', (event) => {
+			console.log('WebSocket connection closed:', event);
+		});
 
-socket.addEventListener('close', (event) => {
-    console.log('WebSocket connection closed:', event);
-});
+		socket.addEventListener('error', (error) => {
+			console.error('WebSocket Error:', error);
+		});
+	} catch (error) {
+		console.error(error);
+	}
+}
 
-socket.addEventListener('error', (error) => {
-    console.error('WebSocket Error:', error);
+// when every chrome window is closed, close the websocket connection
+chrome.windows.onRemoved.addListener(async function (windowId) {
+	try {
+		let windows = await getWindows();
+		if (windows.length === 0) {
+			socket.close();
+		}
+	} catch (error) {
+		console.error(error);
+	}
 });

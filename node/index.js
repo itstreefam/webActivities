@@ -7,6 +7,9 @@ const portfinder = require('portfinder');
 const activeWin = require('active-win');
 const http = require('http');
 const WebSocket = require('ws');
+var intervalId;
+var previousAppName = '';
+let chromeExtensionSocket = null;
 
 portfinder.setBasePort(4000);    // default: 8000
 portfinder.setHighestPort(65535); // default: 65535
@@ -82,9 +85,14 @@ portfinder.getPortPromise()
 
         wss.on('connection', (ws) => {
             console.log('WebSocket Client Connected');
+            chromeExtensionSocket = ws;
 
             ws.on('message', (message) => {
-                console.log('Received:', message);
+                // if message is not a string, convert it to string
+                if (typeof message !== 'string') {
+                    message = message.toString('utf8');
+                    console.log('Received:', message);
+                }
             });
 
             ws.send('Hello from Node.js!');
@@ -97,14 +105,8 @@ portfinder.getPortPromise()
 
     })
     .catch((err) => {
-        //
-        // Could not get a free port, `err` contains the reason.
-        //
         console.log(err);
     });
-
-var intervalId;
-var previousAppName = '';
 
 const checkAppSwitch = async () => {
     try {
@@ -117,8 +119,11 @@ const checkAppSwitch = async () => {
 
         if(currentAppName !== "windows explorer"){ // special case for windows
             if (previousAppName.includes('code') && currentAppName.includes('chrome')) {
-                console.log('Switched to from VS Code to Chrome');
-            } 
+                // Send message to client
+                if(chromeExtensionSocket) {
+                    chromeExtensionSocket.send('Switched from VS Code to Chrome');
+                }
+            }
             previousAppName = currentAppName;
         }
     }
