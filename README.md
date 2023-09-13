@@ -14,17 +14,15 @@ https://user-images.githubusercontent.com/44308446/172900037-66332410-a1e5-4999-
 
 1.  Clone this reprository. 
 
-2.  From the main directory of webActivities, go inside the 'node' folder and run ```npm i``` to install all dependencies. You might also need to ```npm install express``` and ```npm install cors``` if ```npm i``` did not install those two. 
+2.  Update the variable 'user_dir' in node/index.js with a folder path that you plan to perform your tasks/work on (i.e. the same workspace as the one in "[Extension Development Host]" VS Code window from codeHistories).
 
-3.  Update the variable 'user_dir' in node/index.js with a folder path that you plan to perform your tasks/work on (i.e. the same workspace as the one in "[Extension Development Host]" VS Code window from codeHistories). 
+3.  From the main directory of webActivities in an external terminal, run ```npm run build``` to build the extension. Then run ```npm start``` to establish connection between the extension and the node server. Keep this node server (i.e. the terminal) running in the background.
 
-4.  Run ```node index.js``` inside the node folder to start up a localhost node server that can capture the web data information and communicate them to your working folder. Keep this node server running in the background.
+4.  Open Google Chrome and go to ```chrome://extensions/```
 
-5.  Open Google Chrome and go to ```chrome://extensions/```
+5.  Turn on Developer mode (top right of the browser)
 
-6.  Turn on Developer mode (top right of the browser)
-
-7.  Choose the option "Load unpacked" (under the big word Extension) and select the cloned "webActivities" directory as the folder.
+6.  Choose the option "Load unpacked" (under the big word Extension) and select the cloned "webActivities" directory as the folder.
 
 ## Important notes
 
@@ -47,6 +45,10 @@ Updated webActivites to be compatible with MacOS, Windows, and Linux by utilizin
 ### V2
 
 Refactored background.js and updated webActivities to try and keep service worker active at all times (to avoid missing data). This approach made use of chrome offscreen API ```https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension```, so chrome version needs to be 109+.
+
+### V2.x
+
+Used webpack to bundle the extension. This allows the extension to be integrated with other javascript libraries. => Able to use websocket to send data to node server instead of using http request. Checking app switch is also done to automatically reload localhost if user switches from VS Code to Chrome (This addresses capturing live reloading events).
 
 ## Contact
 
