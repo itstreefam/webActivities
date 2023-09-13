@@ -4,89 +4,8 @@
 const newTab = "chrome://newtab/";
 const extensionTab = "chrome://extensions/";
 let portNum = 4000;
+let socket = undefined;
 console.log('This is background service worker');
-
-// const connections = {};
-
-// chrome.runtime.onConnect.addListener(function (port) {
-//   if (port.name !== "devtools-page") return;
-
-//   let extensionListener = function (message, sender, sendResponse) {
-//     // The original connection event doesn't include the tab ID of the
-//     // DevTools page, so we need to send it explicitly.
-//     if (message.name === "init") {
-//       connections[message.tabId] = port;
-//       return;
-//     }
-//   };
-
-//   // Listen to messages sent from the DevTools page
-//   port.onMessage.addListener(extensionListener);
-
-//   port.onDisconnect.addListener(function () {
-//     port.onMessage.removeListener(extensionListener);
-
-//     const tabs = Object.keys(connections);
-//     for (let i = 0, len = tabs.length; i < len; i++) {
-//       if (connections[tabs[i]] === port) {
-//         delete connections[tabs[i]];
-//         break;
-//       }
-//     }
-//   });
-// });
-
-let tabLogs = {};
-
-// chrome.webNavigation.onCompleted.addListener(function(details) {
-// 	chrome.scripting.executeScript({
-//         target: {tabId: details.tabId},
-//         files: ['./dist/livereloaddetect.bundle.js']
-//     });
-// });
-
-// chrome.webNavigation.onCompleted.addListener(function(details) {
-// 	if (!tabLogs[details.tabId]) {
-// 		tabLogs[details.tabId] = [];
-// 	}
-// 	tabLogs[details.tabId].push(`Navigated to: ${details.url}`);
-// 	console.log(tabLogs);
-// });
-
-// chrome.webNavigation.onErrorOccurred.addListener(function(details) {
-// 	if (!tabLogs[details.tabId]) {
-// 		tabLogs[details.tabId] = [];
-//   	}
-// 	tabLogs[details.tabId].push(`Error: ${details.error}`);
-// 	console.log(tabLogs);
-// });
-
-// --- On Reloading or Entering example.com --- 
-chrome.webNavigation.onCommitted.addListener((details) => {
-    if (["reload", "link", "typed", "generated"].includes(details.transitionType) &&
-        (details.url.includes("localhost") || details.url.includes("127.0.0.1"))) {
-
-        console.log("onCommitted: ", details.tabId);
-
-		// chrome.scripting.executeScript({
-		// 	files: ['./dist/devtoolsdetect.bundle.js'],
-		// 	target: { tabId: details.tabId }
-		// });
-
-		// chrome.scripting.executeScript({
-		// 	files: ['./dist/livereloaddetect.bundle.js'],
-		// 	target: { tabId: details.tabId }
-		// });
-
-        // If you want to run only when the reload finished (at least the DOM was loaded)
-        // chrome.webNavigation.onCompleted.addListener(function onComplete() {
-
-        //     codeAfterReloadAndFinishSomeLoading();
-
-        //     chrome.webNavigation.onCompleted.removeListener(onComplete);
-        // });
-    }
-});
 
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // create the offscreen document if it doesn't already exist
@@ -491,21 +410,8 @@ function newTabChecker(id) {
 }
 
 chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
-	console.log("onUpdated: ", changeInfo);
-
-	// chrome.tabs.get(tabId, function(tab){
-    //     var y = tab.url;
-	// 	console.log(y);
-	// 	if(y.includes("localhost") || y.includes("127.0.0.1")) {
-	// 		chrome.scripting.executeScript({
-	// 			files: ['track-auto-refresh.js'],
-	// 			target: { tabId: tabId },
-	// 			injectImmediately: true
-	// 		});
-	// 	}
-	// });
-
-	/*if (changeInfo.status === 'loading') {
+	// console.log("onUpdated: ", changeInfo);
+	if (changeInfo.status === 'loading') {
 		// e.g. transtionsList = ['typed', 'link', 'link'] for Facebook
 		// some events can be grouped together during web navigation 
 		// => transitionsList[0] is the correct transition type
@@ -526,19 +432,20 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 	}
 
 	if (changeInfo.status === 'complete') {
-		chrome.scripting.executeScript({
-			target: { tabId: tabId },
-			func: docReferrer,
-		},
-			function (ref) {
-				var e = chrome.runtime.lastError;
-				if (e !== undefined) {
-					console.log(tabId, e);
-				}
-				// console.log(ref);
-				processTab(tab, tabId);
-			});
-	}*/
+		// chrome.scripting.executeScript({
+		// 	target: { tabId: tabId },
+		// 	func: docReferrer,
+		// },
+		// 	function (ref) {
+		// 		var e = chrome.runtime.lastError;
+		// 		if (e !== undefined) {
+		// 			console.log(tabId, e);
+		// 		}
+		// 		// console.log(ref);
+		// 		processTab(tab, tabId);
+		// 	});
+		processTab(tab, tabId);
+	}
 });
 
 async function getHistoryVisits(url) {
@@ -696,24 +603,21 @@ async function processTab(tabInfo, tabId){
 	}
 }
 
-async function asyncPostCall(data) {
-	try {
+async function websocketSendData(data) {
+	try{
 		let port = await readLocalStorage('port');
 		if (typeof port === 'undefined') {
 			return;
 		}
 
-		fetch(`http://localhost:${port}/logWebData`, {
-			method: 'POST',
-			headers: {
-				'Accept': 'application/json, text/plain, */*',
-				'Content-Type': 'application/json'
-			},
-			body: data
-		});
-	} catch(error) {
-		console.log(error);
-	} 
+		// check if there is an existing connection
+		if (socket.readyState === WebSocket.CLOSED) {
+			defineWebSocket(port);
+		}
+        socket.send(data);
+	} catch (error) {
+        console.error('Error sending data via WebSocket:', error);
+    }
 }
 
 setInterval(async function() {
@@ -733,7 +637,7 @@ setInterval(async function() {
 		});
 
 		let result = JSON.stringify(copyData, undefined, 4);
-		await asyncPostCall(result);
+		await websocketSendData(result);
 		// console.log(result);
 	}
 }, 2000);
@@ -741,10 +645,9 @@ setInterval(async function() {
 
 async function defineWebSocket(portNum){
 	try {
-		const socket = new WebSocket('ws://localhost:' + portNum.toString() + '/');
+		socket = new WebSocket('ws://localhost:' + portNum.toString() + '/');
 		socket.addEventListener('open', (event) => {
 			console.log('WebSocket connection opened:', event);
-			socket.send('Hello from background.js!');
 		});
 
 		socket.addEventListener('message', (event) => {
@@ -786,3 +689,22 @@ chrome.windows.onRemoved.addListener(async function (windowId) {
 		console.error(error);
 	}
 });
+
+// chrome.webNavigation.onErrorOccurred.addListener(async function (details) {
+// 	try {
+// 		let curTabInfo = await readLocalStorage(details.tabId.toString());
+// 		if (typeof curTabInfo === 'undefined') {
+// 			return;
+// 		}
+
+// 		if(curTabInfo.action.includes("navigate between urls in the same tab")) {
+// 			curTabInfo.action = "navigate between urls in the same tab (error)";
+// 			curTabInfo.curTitle = curTabInfo.curTitle + details.error;
+// 			curTabInfo.time = Math.round(details.timeStamp / 1000);
+// 			await writeLocalStorage(details.tabId.toString(), curTabInfo);
+// 			await writeLocalStorage('transitionsList', []);
+// 		}
+// 	} catch (error) {
+// 		console.error(error);
+// 	}
+// });
