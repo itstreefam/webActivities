@@ -4,13 +4,17 @@
   "description": "Local server to communicate web url data to a user's folder",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
   },
   "author": "Tri Pham",
   "license": "ISC",
   "dependencies": {
+    "active-win": "^8.1.0",
     "cors": "^2.8.5",
+    "devtools-detect": "^4.0.1",
     "express": "^4.18.1",
-    "portfinder": "^1.0.32"
+    "portfinder": "^1.0.32",
+    "ws": "^8.14.1"
   }
 }

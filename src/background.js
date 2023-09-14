@@ -4,6 +4,8 @@
 const newTab = "chrome://newtab/";
 const extensionTab = "chrome://extensions/";
 let portNum = 4000;
+let socket = undefined;
+let captureLocalhost = false;
 console.log('This is background service worker');
 
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
@@ -20,6 +22,9 @@ async function createOffscreen() {
 // a message from an offscreen document every 20 second resets the inactivity timer
 chrome.runtime.onMessage.addListener(msg => {
 	if (msg.keepAlive) console.log('keepAlive');
+	if (msg.devtools) console.log('is devtools open? ', msg.devtools);
+	if (!msg.devtools) console.log('is devtools open? ', false);
+	if (msg.type) console.log(msg.type);
 });
 
 // only reset the storage when one chrome window first starts up
@@ -37,6 +42,7 @@ chrome.runtime.onStartup.addListener(async function () {
 			});
 		}
 		createOffscreen();
+		defineWebSocket(portNum);
 	} catch (error) {
 		console.err(error);
 	}
@@ -77,8 +83,8 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 				"recording": false
 			});
 		};
-
 		createOffscreen();
+		defineWebSocket(portNum);
 	} catch (error) {
 		console.error(error);
 	}
@@ -337,15 +343,15 @@ function objCompare(obj1, obj2) {
 			delete o2.time;
 		}
 
-		if(o1.curUrl.includes('localhost') && o2.curUrl.includes('localhost')) {
+		if(o1.curUrl && o1.curUrl.includes('localhost') && o2.curUrl && o2.curUrl.includes('localhost')) {
 			return false;
 		}
 
-		if(o1.curUrl.includes('127.0.0.1') && o2.curUrl.includes('127.0.0.1')) {
+		if(o1.curUrl && o1.curUrl.includes('127.0.0.1') && o2.curUrl && o2.curUrl.includes('127.0.0.1')) {
 			return false;
 		}
 
-		if(o1.action.includes('reload') && o2.action.includes('reload')) {
+		if(o1.action && o1.action.includes('reload') && o2.action && o2.action.includes('reload')) {
 			return false;
 		}
 
@@ -405,6 +411,7 @@ function newTabChecker(id) {
 }
 
 chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
+	// console.log("onUpdated: ", changeInfo);
 	if (changeInfo.status === 'loading') {
 		// e.g. transtionsList = ['typed', 'link', 'link'] for Facebook
 		// some events can be grouped together during web navigation 
@@ -426,18 +433,58 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 	}
 
 	if (changeInfo.status === 'complete') {
-		chrome.scripting.executeScript({
-			target: { tabId: tabId },
-			func: docReferrer,
-		},
-			function (ref) {
-				var e = chrome.runtime.lastError;
-				if (e !== undefined) {
-					console.log(tabId, e);
+		// chrome.scripting.executeScript({
+		// 	target: { tabId: tabId },
+		// 	func: docReferrer,
+		// },
+		// 	function (ref) {
+		// 		var e = chrome.runtime.lastError;
+		// 		if (e !== undefined) {
+		// 			console.log(tabId, e);
+		// 		}
+		// 		// console.log(ref);
+		// 		processTab(tab, tabId);
+		// 	});
+		processTab(tab, tabId);
+	}
+
+	if (changeInfo.status === 'complete' && captureLocalhost) {
+		setTimeout(function () {
+			chrome.tabs.captureVisibleTab(null, { format: "png" }, async function (image) {
+				// console.log(image);
+				if (image === undefined) {
+					return;
 				}
-				// console.log(ref);
-				processTab(tab, tabId);
+
+				let curWindow = "curWindowId " + tab.windowId.toString();
+				let curWindowInfo = await readLocalStorage(curWindow);
+				if (typeof curWindowInfo === 'undefined') {
+					return;
+				}
+
+				let curTabInfo = await readLocalStorage(tabId.toString());
+				if (typeof curTabInfo === 'undefined') {
+					return;
+				}
+
+				if (curWindowInfo.recording && curTabInfo.recording) {
+					await writeLocalStorage(tabId.toString(), {
+						"curUrl": tab.url,
+						"curTabId": tabId,
+						"prevUrl": curTabInfo.curUrl,
+						"prevTabId": tabId,
+						"curTitle": tab.title,
+						"recording": curTabInfo.recording,
+						"action": "localhost reload",
+						"time": timeStamp(),
+						"image": image
+						// todo: https://stacktuts.com/how-to-download-a-base64-encoded-image-in-javascript
+					});
+				}
+
 			});
+			captureLocalhost = false;
+		}, 1500);
 	}
 });
 
@@ -596,24 +643,21 @@ async function processTab(tabInfo, tabId){
 	}
 }
 
-async function asyncPostCall(data) {
-	try {
+async function websocketSendData(data) {
+	try{
 		let port = await readLocalStorage('port');
 		if (typeof port === 'undefined') {
 			return;
 		}
 
-		fetch(`http://localhost:${port}/logWebData`, {
-			method: 'POST',
-			headers: {
-				'Accept': 'application/json, text/plain, */*',
-				'Content-Type': 'application/json'
-			},
-			body: data
-		});
-	} catch(error) {
-		console.log(error);
-	} 
+		// check if there is an existing connection
+		if (socket.readyState === WebSocket.CLOSED) {
+			defineWebSocket(port);
+		}
+        socket.send(data);
+	} catch (error) {
+        console.error('Error sending data via WebSocket:', error);
+    }
 }
 
 setInterval(async function() {
@@ -633,7 +677,75 @@ setInterval(async function() {
 		});
 
 		let result = JSON.stringify(copyData, undefined, 4);
-		await asyncPostCall(result);
+		await websocketSendData(result);
 		// console.log(result);
 	}
 }, 2000);
+
+
+async function defineWebSocket(portNum){
+	try {
+		socket = new WebSocket('ws://localhost:' + portNum.toString() + '/');
+		socket.addEventListener('open', (event) => {
+			console.log('WebSocket connection opened:', event);
+		});
+
+		socket.addEventListener('message', (event) => {
+			console.log('Message from server:', event.data);
+			if(event.data === 'Switched from VS Code to Chrome'){
+				// if current tab contains localhost or 127.0.0.1, then reload the page
+				chrome.tabs.query({ active: true, currentWindow: true, windowType: "normal" }, function (tabs) {
+					if(tabs.length === 0) {
+						return;
+					}
+					var y = tabs[0].url;
+					if(y.includes("localhost") || y.includes("127.0.0.1")) {
+						captureLocalhost = true;
+						chrome.tabs.reload(tabs[0].id);
+					}
+				});
+			}
+		});
+
+		socket.addEventListener('close', (event) => {
+			console.log('WebSocket connection closed:', event);
+		});
+
+		socket.addEventListener('error', (error) => {
+			console.error('WebSocket Error:', error);
+		});
+	} catch (error) {
+		console.error(error);
+	}
+}
+
+// when every chrome window is closed, close the websocket connection
+chrome.windows.onRemoved.addListener(async function (windowId) {
+	try {
+		let windows = await getWindows();
+		if (windows.length === 0) {
+			socket.close();
+		}
+	} catch (error) {
+		console.error(error);
+	}
+});
+
+// chrome.webNavigation.onErrorOccurred.addListener(async function (details) {
+// 	try {
+// 		let curTabInfo = await readLocalStorage(details.tabId.toString());
+// 		if (typeof curTabInfo === 'undefined') {
+// 			return;
+// 		}
+
+// 		if(curTabInfo.action.includes("navigate between urls in the same tab")) {
+// 			curTabInfo.action = "navigate between urls in the same tab (error)";
+// 			curTabInfo.curTitle = curTabInfo.curTitle + details.error;
+// 			curTabInfo.time = Math.round(details.timeStamp / 1000);
+// 			await writeLocalStorage(details.tabId.toString(), curTabInfo);
+// 			await writeLocalStorage('transitionsList', []);
+// 		}
+// 	} catch (error) {
+// 		console.error(error);
+// 	}
+// });

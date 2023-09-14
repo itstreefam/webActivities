@@ -21,14 +21,30 @@
         "offscreen"
     ],
 	"host_permissions": [
-	  "*://*/*"
+	  "*://*/*",
+      "<all_urls>"
 	],
     "background": {
-        "service_worker": "background.js",
-        "type": "module"
+        "service_worker": "./dist/background.bundle.js"
     },
     "action": {
         "default_title": "webActivities",
-        "default_popup": "popup.html"
-    }
+        "default_popup": "./dist/popup.html"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self';"
+    },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["./dist/devtoolsdetect.bundle.js"],
+            "run_at": "document_start"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["./dist/devtoolsdetect.bundle.js"],
+            "matches": ["<all_urls>"]
+        }
+    ]
 }
