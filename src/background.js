@@ -450,25 +450,25 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 
 	if (changeInfo.status === 'complete' && captureLocalhost) {
 		setTimeout(function () {
-			chrome.tabs.captureVisibleTab(null, { format: "png" }, function (image) {
+			chrome.tabs.captureVisibleTab(null, { format: "png" }, async function (image) {
 				// console.log(image);
 				if (image === undefined) {
 					return;
 				}
 
 				let curWindow = "curWindowId " + tab.windowId.toString();
-				let curWindowInfo = readLocalStorage(curWindow);
+				let curWindowInfo = await readLocalStorage(curWindow);
 				if (typeof curWindowInfo === 'undefined') {
 					return;
 				}
 
-				let curTabInfo = readLocalStorage(tabId.toString());
+				let curTabInfo = await readLocalStorage(tabId.toString());
 				if (typeof curTabInfo === 'undefined') {
 					return;
 				}
 
-				// if (curWindowInfo.recording && curTabInfo.recording) {
-					writeLocalStorage(tabId.toString(), {
+				if (curWindowInfo.recording && curTabInfo.recording) {
+					await writeLocalStorage(tabId.toString(), {
 						"curUrl": tab.url,
 						"curTabId": tabId,
 						"prevUrl": curTabInfo.curUrl,
@@ -479,9 +479,8 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 						"time": timeStamp(),
 						"image": image
 						// todo: https://stacktuts.com/how-to-download-a-base64-encoded-image-in-javascript
-						
 					});
-				// }
+				}
 
 			});
 			captureLocalhost = false;
