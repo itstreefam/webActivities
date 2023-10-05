@@ -448,13 +448,15 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 		processTab(tab, tabId);
 	}
 
-	if (changeInfo.status === 'complete' && captureLocalhost) {
+	/*if (changeInfo.status === 'complete' && captureLocalhost) {
 		setTimeout(function () {
 			chrome.tabs.captureVisibleTab(null, { format: "png" }, async function (image) {
 				// console.log(image);
 				if (image === undefined) {
 					return;
 				}
+
+				let compressedImage = LZString.compress(image);
 
 				let curWindow = "curWindowId " + tab.windowId.toString();
 				let curWindowInfo = await readLocalStorage(curWindow);
@@ -477,7 +479,7 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 						"recording": curTabInfo.recording,
 						"action": "localhost reload",
 						"time": timeStamp(),
-						"image": image
+						"image": compressedImage
 						// todo: https://stacktuts.com/how-to-download-a-base64-encoded-image-in-javascript
 					});
 				}
@@ -485,7 +487,7 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 			});
 			captureLocalhost = false;
 		}, 1500);
-	}
+	}*/
 });
 
 async function getHistoryVisits(url) {
