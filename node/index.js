@@ -3,6 +3,7 @@ const fs = require('fs');
 const portfinder = require('portfinder');
 const activeWin = require('active-win');
 const WebSocket = require('ws');
+const screencapture = require('screenshot-desktop');
 var intervalId;
 var previousAppName = '';
 let chromeExtensionSocket = null;
@@ -23,24 +24,38 @@ portfinder.getPortPromise()
             console.log('Make sure to also update base port in extension popup page to ' + port + ' if they are not matched.');
             
             chromeExtensionSocket = ws;
-            chromeExtensionSocket.on('message', (message) => {
+            chromeExtensionSocket.on('message', async (message) => {
                 if (typeof message !== 'string') {
                     message = message.toString('utf8');
                 }
-                // console.log('Received:', message);
-                let urlResult = JSON.parse(message);
+                const parsedMessage = JSON.parse(message);
+
+                if (parsedMessage.action === 'Capture localhost') {
+                    const imgBuffer = await screencapture();
+
+                    // make a new directory for screenshots if not exist
+                    const screencaptures_dir = path.join(user_dir, 'screencaptures');
+                    if (!fs.existsSync(screencaptures_dir)) {
+                        fs.mkdirSync(screencaptures_dir);
+                    }
+                    const filepath = path.join(screencaptures_dir, parsedMessage.filename);
+                    fs.writeFileSync(filepath, imgBuffer);
+
+                    chromeExtensionSocket.send(JSON.stringify({
+                        status: 'success'
+                    }));
+                    return;  // to ensure the following logic doesn't run in this case
+                }
+
+                let urlResult = parsedMessage;
                 let file = path.join(user_dir, 'webData');
                 let data = JSON.stringify(urlResult, undefined, 4);
-        
+
                 if (fs.existsSync(file)) {
-                    if (fs.readFileSync(file).length === 0) {
-                        fs.writeFileSync(file, data);
-                    } else {
-                        let oldData = JSON.parse(fs.readFileSync(file, 'utf-8'));
-                        let newData = oldData.concat(urlResult);
-                        newData = Array.from(new Set(newData.map(JSON.stringify))).map(JSON.parse);
-                        fs.writeFileSync(file, JSON.stringify(newData, undefined, 4));
-                    }
+                    let oldData = JSON.parse(fs.readFileSync(file, 'utf-8'));
+                    let newData = oldData.concat(urlResult);
+                    newData = Array.from(new Set(newData.map(JSON.stringify))).map(JSON.parse);
+                    fs.writeFileSync(file, JSON.stringify(newData, undefined, 4));
                 } else {
                     fs.writeFileSync(file, data, (err) => {
                         if (err) throw err;
