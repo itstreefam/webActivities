@@ -354,7 +354,7 @@ function objCompare(obj1, obj2) {
 			return false;
 		}
 
-		if(o1.curUrl && o1.curUrl.includes('127.0.0.1') && o2.curUrl && o2.curUrl.includes('127.0.0.1')) {
+		if(o1.curUrl && containsIPAddresses(o1.curUrl) && o2.curUrl && containsIPAddresses(o2.curUrl)) {
 			return false;
 		}
 
@@ -671,13 +671,13 @@ async function defineWebSocket(portNum){
 		socket.addEventListener('message', (event) => {
 			console.log('Message from server:', event.data);
 			if(event.data === 'Switched from VS Code to Chrome'){
-				// if current tab contains localhost or 127.0.0.1, then reload the page
+				// if current tab contains localhost or IPv4 or IPv6, then reload the page
 				chrome.tabs.query({ active: true, currentWindow: true, windowType: "normal" }, function (tabs) {
 					if(tabs.length === 0) {
 						return;
 					}
 					var y = tabs[0].url;
-					if(y.includes("localhost") || y.includes("127.0.0.1")) {
+					if(y.includes("localhost") || containsIPAddresses(y)) {
 						captureLocalhost = true;
 						chrome.tabs.reload(tabs[0].id);
 					}
@@ -727,4 +727,13 @@ async function callDesktopCapture(filename){
 			console.error('WebSocket Error:', error);
 		});
 	});
+}
+
+function containsIPAddresses(url) {
+	// Define regex patterns for matching IPv4 and IPv6 addresses
+	const ipv4Pattern = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
+	const ipv6Pattern = /\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b/;
+
+	// Use the regex `test` method to check if the URL contains an IPv4 or IPv6 address
+	return ipv4Pattern.test(url) || ipv6Pattern.test(url);
 }
