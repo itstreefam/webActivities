@@ -202,9 +202,6 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
   
 	let closedTabId = await readLocalStorage('closedTabId');
 	let action = 'revisit';
-	if (closedTabId !== -1) {
-	  	action = 'revisit after previous tab closed';
-	}
   
 	if (updatedLatestTab.curWinId !== updatedLatestTab.prevWinId) {
 	  	return;
@@ -445,78 +442,6 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 	if (changeInfo.status === 'complete') {
 		processTab(tab, tabId);
 	}
-
-	/*if (changeInfo.status === 'complete' && captureLocalhost) {
-		let curWindow = "curWindowId " + tab.windowId.toString();
-		let curWindowInfo = await readLocalStorage(curWindow);
-		if (typeof curWindowInfo === 'undefined') {
-			return;
-		}
-
-		let curTabInfo = await readLocalStorage(tabId.toString());
-		if (typeof curTabInfo === 'undefined') {
-			return;
-		}
-
-		if (curWindowInfo.recording && curTabInfo.recording) {
-			await writeLocalStorage(tabId.toString(), {
-				"curUrl": tab.url,
-				"curTabId": tabId,
-				"prevUrl": curTabInfo.curUrl,
-				"prevTabId": tabId,
-				"curTitle": tab.title,
-				"recording": curTabInfo.recording,
-				"action": "localhost reload",
-				"time": timeStamp(),
-				// e.g. screencapture-n83_2023-04-07-17_36_36.png
-				"image": "screencapture-n" + tabId.toString() + "_" + timeStamp().toString("yyyy-MM-dd-HH_mm_ss") + ".png"
-			});
-		}
-
-
-		// send message to server to capture localhost
-		chrome.
-
-
-
-		setTimeout(function () {
-			chrome.tabs.captureVisibleTab(null, { format: "png" }, async function (image) {
-				// console.log(image);
-				if (image === undefined) {
-					return;
-				}
-
-				let compressedImage = LZString.compress(image);
-
-				let curWindow = "curWindowId " + tab.windowId.toString();
-				let curWindowInfo = await readLocalStorage(curWindow);
-				if (typeof curWindowInfo === 'undefined') {
-					return;
-				}
-
-				let curTabInfo = await readLocalStorage(tabId.toString());
-				if (typeof curTabInfo === 'undefined') {
-					return;
-				}
-
-				if (curWindowInfo.recording && curTabInfo.recording) {
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": tab.url,
-						"curTabId": tabId,
-						"prevUrl": curTabInfo.curUrl,
-						"prevTabId": tabId,
-						"curTitle": tab.title,
-						"recording": curTabInfo.recording,
-						"action": "localhost reload",
-						"time": timeStamp(),
-						"image": compressedImage
-					});
-				}
-
-			});
-			captureLocalhost = false;
-		}, 1000);
-	}*/
 });
 
 async function getHistoryVisits(url) {
