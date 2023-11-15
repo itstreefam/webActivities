@@ -129,18 +129,33 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 					if (curWindowInfo.recording && prevWindowInfo.recording) {
 						let time = timeStamp();
 						let filename = `screencapture-n${String(latestTab.curId)}_${time}.png`;
-						await writeLocalStorage(String(latestTab.curId), {
-							curUrl: tabInfo.curUrl,
-							curTabId: tabInfo.curTabId,
-							prevUrl: prevTabInfo.curUrl,
-							prevTabId: prevTabInfo.curTabId,
-							curTitle: tabs[0].title,
-							recording: tabInfo.recording,
-							action: "revisit",
-							time: timeStamp(),
-							img: filename
-						});
-						await callDesktopCapture(filename);
+
+						if(tabInfo.recording) {
+							await writeLocalStorage(String(latestTab.curId), {
+								curUrl: tabInfo.curUrl,
+								curTabId: tabInfo.curTabId,
+								prevUrl: prevTabInfo.curUrl,
+								prevTabId: prevTabInfo.curTabId,
+								curTitle: tabs[0].title,
+								recording: tabInfo.recording,
+								action: "revisit",
+								time: timeStamp(),
+								img: filename
+							});
+							await callDesktopCapture(filename);
+						} else {
+							await writeLocalStorage(String(latestTab.curId), {
+								curUrl: tabInfo.curUrl,
+								curTabId: tabInfo.curTabId,
+								prevUrl: prevTabInfo.curUrl,
+								prevTabId: prevTabInfo.curTabId,
+								curTitle: tabs[0].title,
+								recording: tabInfo.recording,
+								action: "revisit",
+								time: timeStamp(),
+								img: ""
+							});
+						}
 					}
 				}
 			}
@@ -218,19 +233,34 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 
 	let time = timeStamp();
 	let filename = `screencapture-n${String(updatedLatestTab.curId)}_${time}.png`;
-	// Set the updated tab info
-	await writeLocalStorage(String(updatedLatestTab.curId), {
-		curUrl: tabInfo.curUrl,
-		curTabId: tabInfo.curTabId,
-		prevUrl: prevTabInfo.curUrl,
-		prevTabId: prevTabInfo.curTabId,
-		curTitle: tabs[0].title,
-		recording: tabInfo.recording,
-		action: action,
-		time: time,
-		img: filename
-	});
-	await callDesktopCapture(filename);
+
+	if(tabInfo.recording){
+		// Set the updated tab info
+		await writeLocalStorage(String(updatedLatestTab.curId), {
+			curUrl: tabInfo.curUrl,
+			curTabId: tabInfo.curTabId,
+			prevUrl: prevTabInfo.curUrl,
+			prevTabId: prevTabInfo.curTabId,
+			curTitle: tabs[0].title,
+			recording: tabInfo.recording,
+			action: action,
+			time: time,
+			img: filename
+		});
+		await callDesktopCapture(filename);
+	} else {
+		await writeLocalStorage(String(updatedLatestTab.curId), {
+			curUrl: tabInfo.curUrl,
+			curTabId: tabInfo.curTabId,
+			prevUrl: prevTabInfo.curUrl,
+			prevTabId: prevTabInfo.curTabId,
+			curTitle: tabs[0].title,
+			recording: tabInfo.recording,
+			action: action,
+			time: time,
+			img: ""
+		});
+	}
   
 	if (closedTabId !== -1) {
 		await writeLocalStorage('closedTabId', -1);
@@ -486,18 +516,60 @@ async function processTab(tabInfo, tabId){
 					// if simply opening a new tab, then prevUrl and prevTabId don't exist
 					let time = timeStamp();
 					let filename = `screencapture-n${tabId.toString()}_${time}.png`;
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": newTabInfo.url,
-						"curTabId": tabId,
-						"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-						"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-						"curTitle": newTabInfo.title,
-						"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-						"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-						"time": time,
-						"img": filename
-					});
-					await callDesktopCapture(filename);
+
+					if(typeof curWindowInfo.recording !== 'undefined') {
+						if(curWindowInfo.recording) {
+							await writeLocalStorage(tabId.toString(), {
+								"curUrl": newTabInfo.url,
+								"curTabId": tabId,
+								"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+								"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+								"curTitle": newTabInfo.title,
+								"recording": curWindowInfo.recording,
+								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								"time": time,
+								"img": filename
+							});
+							await callDesktopCapture(filename);
+						} else {
+							await writeLocalStorage(tabId.toString(), {
+								"curUrl": newTabInfo.url,
+								"curTabId": tabId,
+								"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+								"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+								"curTitle": newTabInfo.title,
+								"recording": false,
+								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								"time": time,
+								"img": ""
+							});
+						}
+					} else {
+						await writeLocalStorage(tabId.toString(), {
+							"curUrl": newTabInfo.url,
+							"curTabId": tabId,
+							"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+							"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+							"curTitle": newTabInfo.title,
+							"recording": false,
+							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							"time": time,
+							"img": ""
+						});
+					}
+
+					// await writeLocalStorage(tabId.toString(), {
+					// 	"curUrl": newTabInfo.url,
+					// 	"curTabId": tabId,
+					// 	"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+					// 	"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+					// 	"curTitle": newTabInfo.title,
+					// 	"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+					// 	"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+					// 	"time": time,
+					// 	"img": filename
+					// });
+					// await callDesktopCapture(filename);
 
 					if(newTabInfo.url !== newTab) {
 						await writeLocalStorage('transitionsList', []);
@@ -507,18 +579,60 @@ async function processTab(tabInfo, tabId){
 					// this case happens when reloading the extension
 					let time = timeStamp();
 					let filename = `screencapture-n${String(tabId.toString())}_${time}.png`;
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": newTabInfo.url,
-						"curTabId": tabId,
-						"prevUrl": "",
-						"prevTabId": tabId,
-						"curTitle": newTabInfo.title,
-						"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-						"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-						"time": time,
-						"img": filename
-					});
-					await callDesktopCapture(filename);
+
+					if(typeof curWindowInfo.recording !== 'undefined') {
+						if(curWindowInfo.recording) {
+							await writeLocalStorage(tabId.toString(), {
+								"curUrl": newTabInfo.url,
+								"curTabId": tabId,
+								"prevUrl": "",
+								"prevTabId": tabId,
+								"curTitle": newTabInfo.title,
+								"recording": curWindowInfo.recording,
+								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								"time": time,
+								"img": filename
+							});
+							await callDesktopCapture(filename);
+						} else {
+							await writeLocalStorage(tabId.toString(), {
+								"curUrl": newTabInfo.url,
+								"curTabId": tabId,
+								"prevUrl": "",
+								"prevTabId": tabId,
+								"curTitle": newTabInfo.title,
+								"recording": false,
+								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								"time": time,
+								"img": ""
+							});
+						}
+					} else {
+						await writeLocalStorage(tabId.toString(), {
+							"curUrl": newTabInfo.url,
+							"curTabId": tabId,
+							"prevUrl": "",
+							"prevTabId": tabId,
+							"curTitle": newTabInfo.title,
+							"recording": false,
+							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							"time": time,
+							"img": ""
+						});
+					}
+
+					// await writeLocalStorage(tabId.toString(), {
+					// 	"curUrl": newTabInfo.url,
+					// 	"curTabId": tabId,
+					// 	"prevUrl": "",
+					// 	"prevTabId": tabId,
+					// 	"curTitle": newTabInfo.title,
+					// 	"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+					// 	"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+					// 	"time": time,
+					// 	"img": filename
+					// });
+					// await callDesktopCapture(filename);
 
 					if(newTabInfo.url !== newTab) {
 						await writeLocalStorage('transitionsList', []);
@@ -530,18 +644,60 @@ async function processTab(tabInfo, tabId){
 					// this case happens when extension first installs (query a new tab)
 					let time = timeStamp();
 					let filename = `screencapture-n${String(tabId.toString())}_${time}.png`;
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": newTabInfo.url,
-						"curTabId": tabId,
-						"prevUrl": "",
-						"prevTabId": tabId,
-						"curTitle": newTabInfo.title,
-						"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-						"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-						"time": time,
-						"img": filename
-					});
-					await callDesktopCapture(filename);
+
+					if(typeof curWindowInfo.recording !== 'undefined') {
+						if(curWindowInfo.recording) {
+							await writeLocalStorage(tabId.toString(), {
+								"curUrl": newTabInfo.url,
+								"curTabId": tabId,
+								"prevUrl": "",
+								"prevTabId": tabId,
+								"curTitle": newTabInfo.title,
+								"recording": curWindowInfo.recording,
+								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								"time": time,
+								"img": filename
+							});
+							await callDesktopCapture(filename);
+						} else {
+							await writeLocalStorage(tabId.toString(), {
+								"curUrl": newTabInfo.url,
+								"curTabId": tabId,
+								"prevUrl": "",
+								"prevTabId": tabId,
+								"curTitle": newTabInfo.title,
+								"recording": false,
+								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								"time": time,
+								"img": ""
+							});
+						}
+					} else {
+						await writeLocalStorage(tabId.toString(), {
+							"curUrl": newTabInfo.url,
+							"curTabId": tabId,
+							"prevUrl": "",
+							"prevTabId": tabId,
+							"curTitle": newTabInfo.title,
+							"recording": false,
+							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							"time": time,
+							"img": ""
+						});
+					}
+
+					// await writeLocalStorage(tabId.toString(), {
+					// 	"curUrl": newTabInfo.url,
+					// 	"curTabId": tabId,
+					// 	"prevUrl": "",
+					// 	"prevTabId": tabId,
+					// 	"curTitle": newTabInfo.title,
+					// 	"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+					// 	"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+					// 	"time": time,
+					// 	"img": filename
+					// });
+					// await callDesktopCapture(filename);
 
 					if(newTabInfo.url !== newTab) {
 						await writeLocalStorage('transitionsList', []);
@@ -555,18 +711,60 @@ async function processTab(tabInfo, tabId){
 					}
 					let time = timeStamp();
 					let filename = `screencapture-n${tabId.toString()}_${time}.png`;
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": newTabInfo.url,
-						"curTabId": tabId,
-						"prevUrl": x.curUrl,
-						"prevTabId": latestTabInfo.prevId,
-						"curTitle": newTabInfo.title,
-						"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-						"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-						"time": time,
-						"img": filename
-					});
-					await callDesktopCapture(filename);
+
+					if(typeof curWindowInfo.recording !== 'undefined') {
+						if(curWindowInfo.recording) {
+							await writeLocalStorage(tabId.toString(), {
+								"curUrl": newTabInfo.url,
+								"curTabId": tabId,
+								"prevUrl": x.curUrl,
+								"prevTabId": latestTabInfo.prevId,
+								"curTitle": newTabInfo.title,
+								"recording": curWindowInfo.recording,
+								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+								"time": time,
+								"img": filename
+							});
+							await callDesktopCapture(filename);
+						} else {
+							await writeLocalStorage(tabId.toString(), {
+								"curUrl": newTabInfo.url,
+								"curTabId": tabId,
+								"prevUrl": x.curUrl,
+								"prevTabId": latestTabInfo.prevId,
+								"curTitle": newTabInfo.title,
+								"recording": false,
+								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+								"time": time,
+								"img": ""
+							});
+						}
+					} else {
+						await writeLocalStorage(tabId.toString(), {
+							"curUrl": newTabInfo.url,
+							"curTabId": tabId,
+							"prevUrl": x.curUrl,
+							"prevTabId": latestTabInfo.prevId,
+							"curTitle": newTabInfo.title,
+							"recording": false,
+							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+							"time": time,
+							"img": ""
+						});
+					}
+
+					// await writeLocalStorage(tabId.toString(), {
+					// 	"curUrl": newTabInfo.url,
+					// 	"curTabId": tabId,
+					// 	"prevUrl": x.curUrl,
+					// 	"prevTabId": latestTabInfo.prevId,
+					// 	"curTitle": newTabInfo.title,
+					// 	"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+					// 	"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+					// 	"time": time,
+					// 	"img": filename
+					// });
+					// await callDesktopCapture(filename);
 
 					if(newTabInfo.url !== newTab) {
 						await writeLocalStorage('transitionsList', []);
@@ -582,18 +780,60 @@ async function processTab(tabInfo, tabId){
 			}
 			let time = timeStamp();
 			let filename = `screencapture-n${tabId.toString()}_${time}.png`;
-			await writeLocalStorage(tabId.toString(), {
-				"curUrl": tabInfo.url,
-				"curTabId": tabId,
-				"prevUrl": y.curUrl,
-				"prevTabId": latestTabInfo.curId,
-				"curTitle": tabInfo.title,
-				"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
-				"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-				"time": time,
-				"img": filename
-			});
-			await callDesktopCapture(filename);
+
+			if(typeof curWindowInfo.recording !== 'undefined') {
+				if(curWindowInfo.recording) {
+					await writeLocalStorage(tabId.toString(), {
+						"curUrl": tabInfo.url,
+						"curTabId": tabId,
+						"prevUrl": y.curUrl,
+						"prevTabId": latestTabInfo.curId,
+						"curTitle": tabInfo.title,
+						"recording": curWindowInfo.recording,
+						"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+						"time": time,
+						"img": filename
+					});
+					await callDesktopCapture(filename);
+				} else {
+					await writeLocalStorage(tabId.toString(), {
+						"curUrl": tabInfo.url,
+						"curTabId": tabId,
+						"prevUrl": y.curUrl,
+						"prevTabId": latestTabInfo.curId,
+						"curTitle": tabInfo.title,
+						"recording": false,
+						"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+						"time": time,
+						"img": ""
+					});
+				} 
+			} else {
+				await writeLocalStorage(tabId.toString(), {
+					"curUrl": tabInfo.url,
+					"curTabId": tabId,
+					"prevUrl": y.curUrl,
+					"prevTabId": latestTabInfo.curId,
+					"curTitle": tabInfo.title,
+					"recording": false,
+					"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+					"time": time,
+					"img": ""
+				});
+			}
+
+			// await writeLocalStorage(tabId.toString(), {
+			// 	"curUrl": tabInfo.url,
+			// 	"curTabId": tabId,
+			// 	"prevUrl": y.curUrl,
+			// 	"prevTabId": latestTabInfo.curId,
+			// 	"curTitle": tabInfo.title,
+			// 	"recording": ((typeof curWindowInfo.recording !== 'undefined') ? curWindowInfo.recording : false),
+			// 	"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+			// 	"time": time,
+			// 	"img": filename
+			// });
+			// await callDesktopCapture(filename);
 
 			if(tabInfo.url !== newTab) {
 				await writeLocalStorage('transitionsList', []);
@@ -602,22 +842,39 @@ async function processTab(tabInfo, tabId){
 	} else {
 		// console.log('case 6');
 		// navigate between urls in a same tab
-		let time = timeStamp();
-		let filename = `screencapture-n${tabId.toString()}_${time}.png`;
-		let transition = await readLocalStorage('transitionsList');
-		curTabInfo.action = "navigate between urls in the same tab";
-		if(transition.length > 0) {
-			curTabInfo.action = "navigate between urls in the same tab (" + transition[0] + ")";
+		if(curTabInfo.recording) {
+			let time = timeStamp();
+			let filename = `screencapture-n${tabId.toString()}_${time}.png`;
+			let transition = await readLocalStorage('transitionsList');
+			curTabInfo.action = "navigate between urls in the same tab";
+			if(transition.length > 0) {
+				curTabInfo.action = "navigate between urls in the same tab (" + transition[0] + ")";
+			}
+			curTabInfo.prevUrl = curTabInfo.curUrl;
+			curTabInfo.curUrl = tabInfo.url;
+			curTabInfo.prevTabId = tabInfo.id;
+			curTabInfo.curTitle = tabInfo.title;
+			curTabInfo.time = time;
+			curTabInfo.img = filename;
+			await writeLocalStorage(tabId.toString(), curTabInfo);
+			await callDesktopCapture(filename);
+			await writeLocalStorage('transitionsList', []);
+		} else {
+			let time = timeStamp();
+			let transition = await readLocalStorage('transitionsList');
+			curTabInfo.action = "navigate between urls in the same tab";
+			if(transition.length > 0) {
+				curTabInfo.action = "navigate between urls in the same tab (" + transition[0] + ")";
+			}
+			curTabInfo.prevUrl = curTabInfo.curUrl;
+			curTabInfo.curUrl = tabInfo.url;
+			curTabInfo.prevTabId = tabInfo.id;
+			curTabInfo.curTitle = tabInfo.title;
+			curTabInfo.time = time;
+			curTabInfo.img = "";
+			await writeLocalStorage(tabId.toString(), curTabInfo);
+			await writeLocalStorage('transitionsList', []);
 		}
-		curTabInfo.prevUrl = curTabInfo.curUrl;
-		curTabInfo.curUrl = tabInfo.url;
-		curTabInfo.prevTabId = tabInfo.id;
-		curTabInfo.curTitle = tabInfo.title;
-		curTabInfo.time = time;
-		curTabInfo.img = filename;
-		await writeLocalStorage(tabId.toString(), curTabInfo);
-		await callDesktopCapture(filename);
-		await writeLocalStorage('transitionsList', []);
 	}
 }
 
