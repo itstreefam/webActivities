@@ -14,6 +14,7 @@ module.exports = {
         devtoolsdetect: './src/devtoolsdetect.js',
         livereloaddetect: './src/livereloaddetect.js',
         browseractive: './src/browseractive.js',
+        checktitle: './src/checktitle.js',
         // Add other entry points as needed
     },
     output: {

@@ -407,7 +407,7 @@ async function writeLocalStorage(key, value) {
 	return new Promise((resolve, reject) => {
 		chrome.storage.local.set({ [key]: value }, function () {
 			if (chrome.runtime.lastError) {
-				reject(new Error(chrome.runtime.lastError.message));
+				reject(chrome.runtime.lastError.message);
 			} else {
 				resolve();
 			}
@@ -519,6 +519,10 @@ async function processTab(tabInfo, tabId){
 					let time = timeStamp();
 					let filename = `screencapture-n${tabId.toString()}_${time}.png`;
 
+					if(newTabInfo.url !== newTab) {
+						await writeLocalStorage('transitionsList', []);
+					}
+
 					if(typeof curWindowInfo.recording !== 'undefined') {
 						if(curWindowInfo.recording) {
 							await writeLocalStorage(tabId.toString(), {
@@ -559,15 +563,15 @@ async function processTab(tabInfo, tabId){
 							"img": ""
 						});
 					}
-
-					if(newTabInfo.url !== newTab) {
-						await writeLocalStorage('transitionsList', []);
-					}
 				} else {
 					// console.log('case 2');
 					// this case happens when reloading the extension
 					let time = timeStamp();
 					let filename = `screencapture-n${String(tabId.toString())}_${time}.png`;
+
+					if(newTabInfo.url !== newTab) {
+						await writeLocalStorage('transitionsList', []);
+					}
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
 						if(curWindowInfo.recording) {
@@ -608,10 +612,6 @@ async function processTab(tabInfo, tabId){
 							"time": time,
 							"img": ""
 						});
-					}
-
-					if(newTabInfo.url !== newTab) {
-						await writeLocalStorage('transitionsList', []);
 					}
 				}
 			} else {
@@ -621,6 +621,10 @@ async function processTab(tabInfo, tabId){
 					let time = timeStamp();
 					let filename = `screencapture-n${String(tabId.toString())}_${time}.png`;
 
+					if(newTabInfo.url !== newTab) {
+						await writeLocalStorage('transitionsList', []);
+					}
+
 					if(typeof curWindowInfo.recording !== 'undefined') {
 						if(curWindowInfo.recording) {
 							await writeLocalStorage(tabId.toString(), {
@@ -660,10 +664,6 @@ async function processTab(tabInfo, tabId){
 							"time": time,
 							"img": ""
 						});
-					}
-
-					if(newTabInfo.url !== newTab) {
-						await writeLocalStorage('transitionsList', []);
 					}
 				} else {
 					// console.log('case 4');
@@ -674,6 +674,10 @@ async function processTab(tabInfo, tabId){
 					}
 					let time = timeStamp();
 					let filename = `screencapture-n${tabId.toString()}_${time}.png`;
+
+					if(newTabInfo.url !== newTab) {
+						await writeLocalStorage('transitionsList', []);
+					}
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
 						if(curWindowInfo.recording) {
@@ -715,10 +719,6 @@ async function processTab(tabInfo, tabId){
 							"img": ""
 						});
 					}
-
-					if(newTabInfo.url !== newTab) {
-						await writeLocalStorage('transitionsList', []);
-					}
 				}
 			}
 		} else {
@@ -730,6 +730,10 @@ async function processTab(tabInfo, tabId){
 			}
 			let time = timeStamp();
 			let filename = `screencapture-n${tabId.toString()}_${time}.png`;
+
+			if(tabInfo.url !== newTab) {
+				await writeLocalStorage('transitionsList', []);
+			}
 
 			if(typeof curWindowInfo.recording !== 'undefined') {
 				if(curWindowInfo.recording) {
@@ -771,17 +775,13 @@ async function processTab(tabInfo, tabId){
 					"img": ""
 				});
 			}
-
-			if(tabInfo.url !== newTab) {
-				await writeLocalStorage('transitionsList', []);
-			}
 		}
 	} else {
 		console.log('case 6');
 		// it looks like in some cases where navigation is subtle, title is not up-to-date with the curUrl
 		// so we need to update the title
-		const title = await getDocumentTitle(tabId);
-		// console.log("curTitle: ", title);
+		const title = await getUpdatedTitle(tabId);
+		console.log("curTitle: ", title);
 		let curTitle = tabInfo.title;
 		if(title !== "") {
 			curTitle = title;
@@ -796,6 +796,7 @@ async function processTab(tabInfo, tabId){
 			if(transition.length > 0) {
 				curTabInfo.action = "navigate between urls in the same tab (" + transition[0] + ")";
 			}
+			await writeLocalStorage('transitionsList', []);
 			curTabInfo.prevUrl = curTabInfo.curUrl;
 			curTabInfo.curUrl = tabInfo.url;
 			curTabInfo.prevTabId = tabInfo.id;
@@ -804,7 +805,6 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.img = filename;
 			await writeLocalStorage(tabId.toString(), curTabInfo);
 			await callDesktopCapture(filename);
-			await writeLocalStorage('transitionsList', []);
 		} else {
 			let time = timeStamp();
 			let transition = await readLocalStorage('transitionsList');
@@ -812,6 +812,7 @@ async function processTab(tabInfo, tabId){
 			if(transition.length > 0) {
 				curTabInfo.action = "navigate between urls in the same tab (" + transition[0] + ")";
 			}
+			await writeLocalStorage('transitionsList', []);
 			curTabInfo.prevUrl = curTabInfo.curUrl;
 			curTabInfo.curUrl = tabInfo.url;
 			curTabInfo.prevTabId = tabInfo.id;
@@ -819,31 +820,19 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.time = time;
 			curTabInfo.img = "";
 			await writeLocalStorage(tabId.toString(), curTabInfo);
-			await writeLocalStorage('transitionsList', []);
 		}
 	}
 }
 
-function getDocumentTitle(tabId) {
+function getUpdatedTitle(tabId) {
     return new Promise((resolve, reject) => {
-		setTimeout(() => {
-			function docTitle() {
-				return document.title;
-			}
-			chrome.scripting.executeScript({
-				target: { tabId: tabId },
-				func: docTitle,
-			}, (results) => {
-				if (chrome.runtime.lastError) {
-					console.error("Error executing script:", chrome.runtime.lastError.message);
-					reject(chrome.runtime.lastError.message);
-				} else if (results && results.length > 0) {
-					resolve(results[0].result);
-				} else {
-					reject("No result returned from script");
-				}
-			});
-		}, 1500);
+        chrome.tabs.sendMessage(tabId, { message: "checkTitle" }, function (response) {
+            if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError.message);
+            } else {
+                resolve(response.title);
+            }
+        });
     });
 }
 
