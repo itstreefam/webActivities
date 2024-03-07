@@ -85,10 +85,32 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 		};
 		createOffscreen();
 		defineWebSocket(portNum);
+
+		chrome.contextMenus.create({
+			title: 'Trigger draggable',
+			contexts: ["selection", "link", "image", "page"],
+			id: "myContextMenuId",
+		})
 	} catch (error) {
 		console.error(error);
 	}
 });
+
+chrome.contextMenus.onClicked.addListener((info, tab) =>
+    testDraggable(tab.id).then(response => console.log(response))
+);
+
+function testDraggable(tabId) {
+	return new Promise((resolve, reject) => {
+		chrome.tabs.sendMessage(tabId, {message: "testDraggable"}, function (response) {
+			if (chrome.runtime.lastError) {
+				reject(chrome.runtime.lastError.message);
+			} else {
+				resolve(response);
+			}
+		});
+	});
+}
 
 async function getLastFocusedWindow() {
 	return new Promise((resolve, reject) => {
@@ -870,8 +892,8 @@ setInterval(async function() {
 		});
 
 		let result = JSON.stringify(copyData, undefined, 4);
-		await websocketSendData(result);
-		// console.log(result);
+		// await websocketSendData(result);
+		console.log(result);
 	}
 }, 2000);
 
