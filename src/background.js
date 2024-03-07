@@ -88,7 +88,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 
 		chrome.contextMenus.create({
 			title: 'Trigger draggable',
-			contexts: ["selection", "link", "image", "page"],
+			contexts: ["all"],
 			id: "myContextMenuId",
 		})
 	} catch (error) {
