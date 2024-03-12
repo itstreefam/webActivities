@@ -22,16 +22,34 @@ class Draggable extends React.Component {
             document.removeEventListener('mouseup', this.onMouseUp);
         }
     }
+
+    componentDidMount() {
+        // Initial positioning in the center
+        const initialX = (window.innerWidth - this.div.offsetWidth) / 2;
+        this.setState({ pos: { x: initialX, y: this.state.pos.y } });
+        window.addEventListener('resize', this.handleResize);
+    }
+    
+    handleResize = () => {
+         // Adjust the position if it's out of the viewport after a resize
+        const currentX = this.state.pos.x;
+        const boxWidth = this.div.offsetWidth;
+        const maxRight = window.innerWidth - boxWidth;
+
+        if (currentX > maxRight) {
+            this.setState({ pos: { x: maxRight, y: this.state.pos.y } });
+        }
+    }
   
     onMouseDown = (e) => {
         // only left mouse button
         if (e.button !== 0) return;
         const pos = this.div.getBoundingClientRect();
+        this.offset = e.clientX - pos.left;
         this.setState({
             dragging: true,
             rel: {
-                x: e.clientX - pos.left,
-                y: e.clientY - pos.top
+                x: e.pageX - pos.left
             }
         });
         e.stopPropagation();
@@ -46,10 +64,19 @@ class Draggable extends React.Component {
   
     onMouseMove = (e) => {
         if (!this.state.dragging) return;
+        
+        let newX = e.clientX - this.state.rel.x;
+        const boxWidth = this.div.offsetWidth;
+        const maxRight = window.innerWidth - boxWidth;
+
+        // Constrain newX to the viewport
+        newX = Math.max(0, newX); // Prevents moving beyond the left edge
+        newX = Math.min(maxRight, newX); // Prevents moving beyond the right edge
+
         this.setState({
             pos: {
-                x: e.clientX - this.state.rel.x,
-                y: e.clientY - this.state.rel.y
+                x: newX,
+                y: this.state.pos.y // The y position is not changed
             }
         });
         e.stopPropagation();
@@ -89,19 +116,44 @@ const draggableStyle = {
     padding: '10px',
     borderRadius: '8px',
     boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.1)',
+    width: '125px',
+    height: '50px',
+    display: 'flex',
+    flexDirection: 'column', // Stack children vertically
+    alignItems: 'center', // Center children horizontally
+};
+
+const textStyle = {
+    color: 'white',
+    marginBottom: '8px', // Space between text and buttons
+};
+  
+const buttonsContainerStyle = {
+    display: 'flex', // Align buttons next to each other
+};
+  
+const buttonStyle = {
+    backgroundColor: 'white',
+    color: 'black',
+    border: 'none',
+    padding: '5px',
+    margin: '0 4px', // Space between buttons
+    cursor: 'pointer',
 };
 
 // Create a functional component for recording bar
 const DraggableRecordingBar = () => {
     return (
         <Draggable
-            initialPos={{ x: 100, y: 200 }}
+            initialPos={{ x: 0, y: 0 }}
             className='my-draggable'
             style = {draggableStyle}
         >
-            <div>🔴 You are screen sharing</div>
-            <button > Stop Share </button>
-            <button onClick={hideDraggableRecordingBar} > Hide </button>
+            <div style={textStyle}>🔴 Tab is recording</div>
+            <div style={buttonsContainerStyle}>
+                <button style={buttonStyle}>Stop</button>
+                <button style={buttonStyle} onClick={hideDraggableRecordingBar}>Hide</button>
+            </div>
       </Draggable>
     );
 };
