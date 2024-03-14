@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "devtools-detect": "^4.0.1",
+    "dexie": "^3.2.6",
     "rrweb": "^2.0.0-alpha.4"
   }
 }
