@@ -8,8 +8,8 @@ let socket = undefined;
 let captureLocalhost = false;
 console.log('This is background service worker');
 
-import { NavgitionDatabase } from "./navigationdb";
-const navigationDatabase = new NavgitionDatabase();
+import { NavigationDatabase } from "./navigationdb";
+const navigationDatabase = new NavigationDatabase();
 
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // create the offscreen document if it doesn't already exist
@@ -45,7 +45,7 @@ chrome.runtime.onStartup.addListener(async function () {
 			});
 		}
 		createOffscreen();
-		defineWebSocket(portNum);
+		// defineWebSocket(portNum);
 	} catch (error) {
 		console.err(error);
 	}
@@ -87,7 +87,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 			});
 		};
 		createOffscreen();
-		defineWebSocket(portNum);
+		// defineWebSocket(portNum);
 	} catch (error) {
 		console.error(error);
 	}
@@ -147,7 +147,7 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 							};
 							await writeLocalStorage(String(latestTab.curId), info);
 							await navigationDatabase.addTabInfo(info);
-							await callDesktopCapture(filename);
+							// await callDesktopCapture(filename);
 						} else {
 							let info = {
 								curUrl: tabInfo.curUrl,
@@ -256,7 +256,7 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 		};
 		await writeLocalStorage(String(updatedLatestTab.curId), info);
 		await navigationDatabase.addTabInfo(info);
-		await callDesktopCapture(filename);
+		// await callDesktopCapture(filename);
 	} else {
 		let info = {
 			curUrl: tabInfo.curUrl,
@@ -289,7 +289,6 @@ chrome.tabs.onCreated.addListener(async function (tab) {
 
 		// if tab is newtab, write to local storage
 		if (tab.url === newTab) {
-			// const imgUrl = await callDesktopCapture(String(tab.id));
 			let info = {
 				curUrl: tab.url,
 				curTabId: tab.id,
@@ -351,23 +350,23 @@ chrome.storage.onChanged.addListener(function (changes) {
 	Object.entries(changes).forEach(([key, { oldValue, newValue }]) => {
 		console.log(key, oldValue, newValue);
 		
-		// if (key.includes("curWindowId")) {
-		// 	return;
-		// }
+		if (key.includes("curWindowId")) {
+			return;
+		}
 
-		// if (objCompare(oldValue, newValue)) {
-		// 	return;
-		// }
+		if (objCompare(oldValue, newValue)) {
+			return;
+		}
 
-		// try {
-		// 	if (newValue.recording !== undefined) {
-		// 		if (newValue.recording) {
-		// 			handleTableData([newValue]);
-		// 		}
-		// 	}
-		// } catch (error) {
-		// 	console.log(error);
-		// }
+		try {
+			if (newValue.recording !== undefined) {
+				if (newValue.recording) {
+					handleTableData([newValue]);
+				}
+			}
+		} catch (error) {
+			console.log(error);
+		}
 	});
 });
   
@@ -551,7 +550,7 @@ async function processTab(tabInfo, tabId){
 							};
 							await writeLocalStorage(tabId.toString(), info);
 							await navigationDatabase.addTabInfo(info);
-							await callDesktopCapture(filename);
+							// await callDesktopCapture(filename);
 						} else {
 							let info = {
 								curUrl: newTabInfo.url,
@@ -607,7 +606,7 @@ async function processTab(tabInfo, tabId){
 							};
 							await writeLocalStorage(tabId.toString(), info);
 							await navigationDatabase.addTabInfo(info);
-							await callDesktopCapture(filename);
+							// await callDesktopCapture(filename);
 						} else {
 							let info = {
 								curUrl: newTabInfo.url,
@@ -665,7 +664,7 @@ async function processTab(tabInfo, tabId){
 							};
 							await writeLocalStorage(tabId.toString(), info);
 							await navigationDatabase.addTabInfo(info);
-							await callDesktopCapture(filename);
+							// await callDesktopCapture(filename);
 						} else {
 							let info = {
 								curUrl: newTabInfo.url,
@@ -725,7 +724,7 @@ async function processTab(tabInfo, tabId){
 							};
 							await writeLocalStorage(tabId.toString(), info);
 							await navigationDatabase.addTabInfo(info);
-							await callDesktopCapture(filename);
+							// await callDesktopCapture(filename);
 						} else {
 							let info = {
 								curUrl: newTabInfo.url,
@@ -787,7 +786,7 @@ async function processTab(tabInfo, tabId){
 					};
 					await writeLocalStorage(tabId.toString(), info);
 					await navigationDatabase.addTabInfo(info);
-					await callDesktopCapture(filename);
+					// await callDesktopCapture(filename);
 				} else {
 					let info = {
 						curUrl: tabInfo.url,
@@ -848,7 +847,7 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.img = filename;
 			await writeLocalStorage(tabId.toString(), curTabInfo);
 			await navigationDatabase.addTabInfo(curTabInfo);
-			await callDesktopCapture(filename);
+			// await callDesktopCapture(filename);
 		} else {
 			let time = timeStamp();
 			let transition = await readLocalStorage('transitionsList');
@@ -899,29 +898,30 @@ async function websocketSendData(data) {
 }
 
 setInterval(async function() {
-	let allTabInfos = await navigationDatabase.getAllTabInfos();
-    console.log("Fetched data:", allTabInfos);
+	let tableData = await readLocalStorage('tableData');
+	if (typeof tableData === 'undefined') {
+		console.log("Table data is undefined");
+		return;
+	}
 
-	// let tableData = await readLocalStorage('tableData');
-	// if (typeof tableData === 'undefined') {
-	// 	return;
-	// }
+	if (tableData.length > 0) {
+		console.log("exporting data to user's working project folder");
+		let copyData = tableData;
 
-	// if (tableData.length > 0) {
-	// 	console.log("exporting data to user's working project folder");
-	// 	let copyData = tableData;
+		// remove the 'recording' keys from the newData
+		copyData = copyData.map(el => {
+			if (el.recording === true) delete el.recording
+			return el;
+		});
 
-	// 	// remove the 'recording' keys from the newData
-	// 	copyData = copyData.map(el => {
-	// 		if (el.recording === true) delete el.recording
-	// 		return el;
-	// 	});
+		let result = JSON.stringify(copyData, undefined, 4);
+		// await websocketSendData(result);
+		console.log("Table data:", result);
+	}
 
-	// 	let result = JSON.stringify(copyData, undefined, 4);
-	// 	// await websocketSendData(result);
-	// 	// console.log(result);
-	// }
-}, 2000);
+	// let allTabInfos = await navigationDatabase.getAllTabInfos();
+    // console.log("Fetched data:", allTabInfos);
+}, 4000);
 
 
 async function defineWebSocket(portNum){

@@ -1,4 +1,112 @@
-window.onload = function () {
+import Dexie from 'dexie';
+
+const db = new Dexie('NavigationDatabase');
+db.version(1).stores({
+  navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img',
+});
+
+// Add a new tab info record
+async function addTabInfo(tabInfo) {
+  try {
+    await db.navigationTable.add(tabInfo);
+    console.log('Tab info added successfully:', tabInfo);
+  } catch (error) {
+    console.error('Failed to add tab info:', error);
+  }
+}
+
+// Update an existing tab info record
+async function updateTabInfo(id, updates) {
+  try {
+    await db.navigationTable.update(id, updates);
+    console.log(`Tab info with id ${id} updated successfully.`);
+  } catch (error) {
+    console.error(`Failed to update tab info with id ${id}:`, error);
+  }
+}
+
+// Sets a key and stores its value into the storage
+async function writeLocalStorage(key, value) {
+	return new Promise((resolve, reject) => {
+		chrome.storage.local.set({ [key]: value }, function () {
+			if (chrome.runtime.lastError) {
+				reject(chrome.runtime.lastError.message);
+			} else {
+				resolve();
+			}
+		});
+	});
+}
+
+// Gets a key value from the storage
+async function readLocalStorage(key) {
+	return new Promise((resolve, reject) => {
+		chrome.storage.local.get([key], function (result) {
+			if (result[key] === undefined) {
+				console.log("Key not found in chrome storage");
+				resolve(undefined);
+			} else {
+				resolve(result[key]);
+			}
+		});
+	});
+}
+
+async function setupRecordAllTabs() {
+  const currentWindow = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
+  const curWindowId = `curWindowId_${currentWindow.id}`;
+  const curWindowInfo = await readLocalStorage(curWindowId);
+  if (curWindowInfo === undefined) {
+    const tabsList = currentWindow.tabs.map(tab => tab.id);
+    await writeLocalStorage(curWindowId, { recording: false, tabsList });
+  }
+
+  const recordAllTabs = document.getElementById("recordAllTabs");
+  const toggleAllTabs = document.createElement("input");
+  toggleAllTabs.type = "checkbox";
+  toggleAllTabs.className = "toggle";
+  const divAllTabs = document.createElement("div");
+  divAllTabs.className = "url";
+  const textNodeAllTabs = document.createTextNode("Record all tabs in current window");
+  divAllTabs.appendChild(textNodeAllTabs);
+  divAllTabs.appendChild(toggleAllTabs);
+  recordAllTabs.appendChild(divAllTabs);
+
+  toggleAllTabs.id = `switchAllTabs_${currentWindow.id}`;
+  toggleAllTabs.checked = curWindowInfo.recording;
+
+  toggleAllTabs.addEventListener("click", async function () {
+    const urlList = document.getElementById("urlList");
+    const urlListChildren = urlList.children;
+    for (let i = 0; i < urlListChildren.length; i++) {
+      const urlListChild = urlListChildren[i];
+      const urlListChildChildren = urlListChild.children;
+      for (let j = 0; j < urlListChildChildren.length; j++) {
+        const urlListChildChild = urlListChildChildren[j];
+        if (urlListChildChild.className === "toggle") {
+          urlListChildChild.checked = toggleAllTabs.checked;
+        }
+      }
+    }
+
+    const tabsList = [];
+    for (let i = 0; i < currentWindow.tabs.length; i++) {
+      tabsList.push(currentWindow.tabs[i].id);
+      const tabInfo = await readLocalStorage(currentWindow.tabs[i].id);
+      if (tabInfo !== undefined) {
+        tabInfo.recording = toggleAllTabs.checked;
+        await writeLocalStorage(currentWindow.tabs[i].id, tabInfo);
+      }
+    }
+    await writeLocalStorage(curWindowId, { recording: toggleAllTabs.checked, tabsList });
+  });
+}
+
+
+window.onload = async function () {
+  await setupRecordAllTabs();
+  await setupIndividualTab();
+  await setupPortNumber();
 
   function timeStamp() {
     let d = new Date();
@@ -110,7 +218,7 @@ window.onload = function () {
               } else {
                 toggle.checked = false;
               }
-              setStorageKey(id.toString(), {
+              let info = {
                 "curUrl": url,
                 "curTabId": id,
                 "prevUrl": "",
@@ -119,7 +227,9 @@ window.onload = function () {
                 "recording": toggle.checked,
                 "action": "add opened tab that is not in storage",
                 "time": timeStamp()
-              });
+              };
+              setStorageKey(id.toString(), info);
+              updateTabInfo(id, info);
           });
           }
           else {
@@ -142,6 +252,7 @@ window.onload = function () {
           if (typeof value !== 'undefined') {
             value.recording = toggle.checked;
             setStorageKey(id.toString(), value);
+            addTabInfo(value);
           }
         });
       });

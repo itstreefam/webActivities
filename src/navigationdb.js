@@ -1,12 +1,12 @@
 import Dexie from 'dexie';
 
-export class NavgitionDatabase {
+export class NavigationDatabase {
     constructor() {
         // Initialize Dexie database
         this.db = new Dexie('NavigationDatabase');
         // Define the database schema
         this.db.version(1).stores({
-            navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img'
+            navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img',
         });
     }
 
