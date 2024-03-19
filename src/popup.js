@@ -15,13 +15,13 @@ async function addTabInfo(tabInfo) {
   }
 }
 
-// Update an existing tab info record
-async function updateTabInfo(id, updates) {
+// Update tab info based on curTabId
+async function updateTabInfoByCurTabId(curTabId, updates) {
   try {
-    await db.navigationTable.update(id, updates);
-    console.log(`Tab info with id ${id} updated successfully.`);
+    await db.navigationTable.where('curTabId').equals(curTabId).modify(updates);
+    console.log(`Tab info with curTabId ${curTabId} updated successfully.`);
   } catch (error) {
-    console.error(`Failed to update tab info with id ${id}:`, error);
+    console.error(`Failed to update tab info with curTabId ${curTabId}:`, error);
   }
 }
 
@@ -101,6 +101,12 @@ async function setupRecordAllTabs() {
   }
 }
 
+// Check if a tab info record exists
+async function tabInfoExists(curTabId) {
+  const count = await db.navigationTable.where('curTabId').equals(curTabId).count();
+  return count > 0;
+}
+
 /* record any individual tab in current window */
 // loop through currently tabs and get their title
 async function setupIndividualTab() {
@@ -120,11 +126,11 @@ async function setupIndividualTab() {
       const div = document.createElement("div");
       div.className = "url";
 
-      let tabInfo = await readLocalStorage(id.toString());
-      if (typeof tabInfo === 'undefined') {
+      let tabInfoExistsInDb = await tabInfoExists(id);
+      if (!tabInfoExistsInDb) {
         const curWindowInfo = await readLocalStorage(`curWindowId ${tab.windowId}`);
         toggle.checked = curWindowInfo?.recording ?? false;
-        tabInfo = {
+        const tabInfo = {
           curUrl: url,
           curTabId: id,
           prevUrl: "",
@@ -135,9 +141,10 @@ async function setupIndividualTab() {
           time: timeStamp()
         };
         await writeLocalStorage(id.toString(), tabInfo);
-        await updateTabInfo(id, tabInfo);
+        await addTabInfo(tabInfo);
       } else {
-        toggle.checked = tabInfo.recording;
+        const existingTabInfo = await readLocalStorage(id.toString());
+        toggle.checked = existingTabInfo.recording;
       }
 
       // add the title to the div
@@ -155,7 +162,7 @@ async function setupIndividualTab() {
         if (typeof value !== 'undefined') {
           value.recording = toggle.checked;
           await writeLocalStorage(id.toString(), value);
-          await addTabInfo(value);
+          await updateTabInfoByCurTabId(id, value);
         }
       });
     }

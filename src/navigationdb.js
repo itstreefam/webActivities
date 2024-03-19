@@ -30,6 +30,17 @@ export class NavigationDatabase {
         }
     }
 
+    // Update tab info based on curTabId
+    async updateTabInfoByCurTabId(curTabId, updates) {
+        try {
+            await db.navigationTable.where('curTabId').equals(curTabId).modify(updates);
+            console.log(`Tab info with curTabId ${curTabId} updated successfully.`);
+        } catch (error) {
+            console.error(`Failed to update tab info with curTabId ${curTabId}:`, error);
+        }
+    }
+  
+
     // bulk insert
     async bulkAddOrUpdateTabInfos(tabInfos) {
         try {
