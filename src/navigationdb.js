@@ -79,6 +79,16 @@ export class NavigationDatabase {
         }
     }
 
+    // Retrieve tab info records that have recording flag set to true
+    async getRecordingTabInfos() {
+        try {
+            return await this.db.navigationTable.filter(tabInfo => tabInfo.recording === true).toArray();
+        } catch (error) {
+            console.error('Failed to retrieve recording tab infos:', error);
+            return []; // Return an empty array on error
+        }
+    }
+
     // Delete a tab info record by id
     async deleteTabInfoById(id) {
         try {

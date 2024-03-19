@@ -92,6 +92,7 @@ async function setupRecordAllTabs() {
         if (tabInfo) {
           tabInfo.recording = toggleAllTabs.checked;
           await writeLocalStorage(tab.id.toString(), tabInfo);
+          await updateTabInfoByCurTabId(tab.id, tabInfo);
         }
       }
       await writeLocalStorage(curWindowId, { recording: toggleAllTabs.checked, tabsList });
