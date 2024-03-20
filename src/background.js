@@ -8,6 +8,9 @@ let socket = undefined;
 let captureLocalhost = false;
 console.log('This is background service worker');
 
+import { NavigationDatabase } from "./navigationdb";
+const navigationDatabase = new NavigationDatabase();
+
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // create the offscreen document if it doesn't already exist
 async function createOffscreen() {
@@ -153,7 +156,7 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 						let filename = `screencapture-n${String(latestTab.curId)}_${time}.png`;
 
 						if(tabInfo.recording) {
-							await writeLocalStorage(String(latestTab.curId), {
+							let info = {
 								curUrl: tabInfo.curUrl,
 								curTabId: tabInfo.curTabId,
 								prevUrl: prevTabInfo.curUrl,
@@ -161,12 +164,14 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 								curTitle: tabs[0].title,
 								recording: tabInfo.recording,
 								action: "revisit",
-								time: timeStamp(),
+								time: time,
 								img: filename
-							});
-							await callDesktopCapture(filename);
+							};
+							await writeLocalStorage(String(latestTab.curId), info);
+							await navigationDatabase.addTabInfo(info);
+							// await callDesktopCapture(filename);
 						} else {
-							await writeLocalStorage(String(latestTab.curId), {
+							let info = {
 								curUrl: tabInfo.curUrl,
 								curTabId: tabInfo.curTabId,
 								prevUrl: prevTabInfo.curUrl,
@@ -174,9 +179,11 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 								curTitle: tabs[0].title,
 								recording: tabInfo.recording,
 								action: "revisit",
-								time: timeStamp(),
+								time: time,
 								img: ""
-							});
+							};
+							await writeLocalStorage(String(latestTab.curId), info);
+							await navigationDatabase.addTabInfo(info);
 						}
 					}
 				}
@@ -258,7 +265,7 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 
 	if(tabInfo.recording){
 		// Set the updated tab info
-		await writeLocalStorage(String(updatedLatestTab.curId), {
+		let info = {
 			curUrl: tabInfo.curUrl,
 			curTabId: tabInfo.curTabId,
 			prevUrl: prevTabInfo.curUrl,
@@ -268,10 +275,12 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 			action: action,
 			time: time,
 			img: filename
-		});
-		await callDesktopCapture(filename);
+		};
+		await writeLocalStorage(String(updatedLatestTab.curId), info);
+		await navigationDatabase.addTabInfo(info);
+		// await callDesktopCapture(filename);
 	} else {
-		await writeLocalStorage(String(updatedLatestTab.curId), {
+		let info = {
 			curUrl: tabInfo.curUrl,
 			curTabId: tabInfo.curTabId,
 			prevUrl: prevTabInfo.curUrl,
@@ -281,7 +290,9 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 			action: action,
 			time: time,
 			img: ""
-		});
+		};
+		await writeLocalStorage(String(updatedLatestTab.curId), info);
+		await navigationDatabase.addTabInfo(info);
 	}
   
 	if (closedTabId !== -1) {
@@ -300,8 +311,7 @@ chrome.tabs.onCreated.addListener(async function (tab) {
 
 		// if tab is newtab, write to local storage
 		if (tab.url === newTab) {
-			// const imgUrl = await callDesktopCapture(String(tab.id));
-			await writeLocalStorage(String(tab.id), {
+			let info = {
 				curUrl: tab.url,
 				curTabId: tab.id,
 				prevUrl: "",
@@ -311,7 +321,9 @@ chrome.tabs.onCreated.addListener(async function (tab) {
 				action: "empty new tab",
 				time: timeStamp(),
 				img: ""
-			});
+			};
+			await writeLocalStorage(String(tab.id), info);
+			await navigationDatabase.addTabInfo(info);
 		}
 
 		// check if the tab is in curWindowInfo.tabsList
@@ -547,43 +559,49 @@ async function processTab(tabInfo, tabId){
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
 						if(curWindowInfo.recording) {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-								"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-								"curTitle": newTabInfo.title,
-								"recording": curWindowInfo.recording,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": filename
-							});
-							await callDesktopCapture(filename);
+							let info = {
+								curUrl: newTabInfo.url,
+								curTabId: tabId,
+								prevUrl: ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+								prevTabId: ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+								curTitle: newTabInfo.title,
+								recording: curWindowInfo.recording,
+								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								time: time,
+								img: filename
+							};
+							await writeLocalStorage(tabId.toString(), info);
+							await navigationDatabase.addTabInfo(info);
+							// await callDesktopCapture(filename);
 						} else {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-								"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-								"curTitle": newTabInfo.title,
-								"recording": false,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": ""
-							});
+							let info = {
+								curUrl: newTabInfo.url,
+								curTabId: tabId,
+								prevUrl: ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+								prevTabId: ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+								curTitle: newTabInfo.title,
+								recording: false,
+								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								time: time,
+								img: ""
+							};
+							await writeLocalStorage(tabId.toString(), info);
+							await navigationDatabase.addTabInfo(info);
 						}
 					} else {
-						await writeLocalStorage(tabId.toString(), {
-							"curUrl": newTabInfo.url,
-							"curTabId": tabId,
-							"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-							"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-							"curTitle": newTabInfo.title,
-							"recording": false,
-							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-							"time": time,
-							"img": ""
-						});
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+							prevTabId: ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+							curTitle: newTabInfo.title,
+							recording: false,
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							time: time,
+							img: ""
+						};
+						await writeLocalStorage(tabId.toString(), info);
+						await navigationDatabase.addTabInfo(info);
 					}
 				} else {
 					// console.log('case 2');
@@ -597,43 +615,49 @@ async function processTab(tabInfo, tabId){
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
 						if(curWindowInfo.recording) {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": "",
-								"prevTabId": tabId,
-								"curTitle": newTabInfo.title,
-								"recording": curWindowInfo.recording,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": filename
-							});
-							await callDesktopCapture(filename);
+							let info = {
+								curUrl: newTabInfo.url,
+								curTabId: tabId,
+								prevUrl: "",
+								prevTabId: tabId,
+								curTitle: newTabInfo.title,
+								recording: curWindowInfo.recording,
+								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								time: time,
+								img: filename
+							};
+							await writeLocalStorage(tabId.toString(), info);
+							await navigationDatabase.addTabInfo(info);
+							// await callDesktopCapture(filename);
 						} else {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": "",
-								"prevTabId": tabId,
-								"curTitle": newTabInfo.title,
-								"recording": false,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": ""
-							});
+							let info = {
+								curUrl: newTabInfo.url,
+								curTabId: tabId,
+								prevUrl: "",
+								prevTabId: tabId,
+								curTitle: newTabInfo.title,
+								recording: false,
+								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								time: time,
+								img: ""
+							};
+							await writeLocalStorage(tabId.toString(), info);
+							await navigationDatabase.addTabInfo(info);
 						}
 					} else {
-						await writeLocalStorage(tabId.toString(), {
-							"curUrl": newTabInfo.url,
-							"curTabId": tabId,
-							"prevUrl": "",
-							"prevTabId": tabId,
-							"curTitle": newTabInfo.title,
-							"recording": false,
-							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-							"time": time,
-							"img": ""
-						});
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: "",
+							prevTabId: tabId,
+							curTitle: newTabInfo.title,
+							recording: false,
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							time: time,
+							img: ""
+						};
+						await writeLocalStorage(tabId.toString(), info);
+						await navigationDatabase.addTabInfo(info);
 					}
 				}
 			} else {
@@ -649,43 +673,49 @@ async function processTab(tabInfo, tabId){
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
 						if(curWindowInfo.recording) {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": "",
-								"prevTabId": tabId,
-								"curTitle": newTabInfo.title,
-								"recording": curWindowInfo.recording,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": filename
-							});
-							await callDesktopCapture(filename);
+							let info = {
+								curUrl: newTabInfo.url,
+								curTabId: tabId,
+								prevUrl: "",
+								prevTabId: tabId,
+								curTitle: newTabInfo.title,
+								recording: curWindowInfo.recording,
+								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								time: time,
+								img: filename
+							};
+							await writeLocalStorage(tabId.toString(), info);
+							await navigationDatabase.addTabInfo(info);
+							// await callDesktopCapture(filename);
 						} else {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": "",
-								"prevTabId": tabId,
-								"curTitle": newTabInfo.title,
-								"recording": false,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": ""
-							});
+							let info = {
+								curUrl: newTabInfo.url,
+								curTabId: tabId,
+								prevUrl: "",
+								prevTabId: tabId,
+								curTitle: newTabInfo.title,
+								recording: false,
+								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+								time: time,
+								img: ""
+							};
+							await writeLocalStorage(tabId.toString(), info);
+							await navigationDatabase.addTabInfo(info);
 						}
 					} else {
-						await writeLocalStorage(tabId.toString(), {
-							"curUrl": newTabInfo.url,
-							"curTabId": tabId,
-							"prevUrl": "",
-							"prevTabId": tabId,
-							"curTitle": newTabInfo.title,
-							"recording": false,
-							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-							"time": time,
-							"img": ""
-						});
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: "",
+							prevTabId: tabId,
+							curTitle: newTabInfo.title,
+							recording: false,
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							time: time,
+							img: ""
+						};
+						await writeLocalStorage(tabId.toString(), info);
+						await navigationDatabase.addTabInfo(info);
 					}
 				} else {
 					// console.log('case 4');
@@ -703,43 +733,49 @@ async function processTab(tabInfo, tabId){
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
 						if(curWindowInfo.recording) {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": x.curUrl,
-								"prevTabId": latestTabInfo.prevId,
-								"curTitle": newTabInfo.title,
-								"recording": curWindowInfo.recording,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-								"time": time,
-								"img": filename
-							});
-							await callDesktopCapture(filename);
+							let info = {
+								curUrl: newTabInfo.url,
+								curTabId: tabId,
+								prevUrl: x.curUrl,
+								prevTabId: latestTabInfo.prevId,
+								curTitle: newTabInfo.title,
+								recording: curWindowInfo.recording,
+								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+								time: time,
+								img: filename
+							};
+							await writeLocalStorage(tabId.toString(), info);
+							await navigationDatabase.addTabInfo(info);
+							// await callDesktopCapture(filename);
 						} else {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": x.curUrl,
-								"prevTabId": latestTabInfo.prevId,
-								"curTitle": newTabInfo.title,
-								"recording": false,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-								"time": time,
-								"img": ""
-							});
+							let info = {
+								curUrl: newTabInfo.url,
+								curTabId: tabId,
+								prevUrl: x.curUrl,
+								prevTabId: latestTabInfo.prevId,
+								curTitle: newTabInfo.title,
+								recording: false,
+								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+								time: time,
+								img: ""
+							};
+							await writeLocalStorage(tabId.toString(), info);
+							await navigationDatabase.addTabInfo(info);
 						}
 					} else {
-						await writeLocalStorage(tabId.toString(), {
-							"curUrl": newTabInfo.url,
-							"curTabId": tabId,
-							"prevUrl": x.curUrl,
-							"prevTabId": latestTabInfo.prevId,
-							"curTitle": newTabInfo.title,
-							"recording": false,
-							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-							"time": time,
-							"img": ""
-						});
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: x.curUrl,
+							prevTabId: latestTabInfo.prevId,
+							curTitle: newTabInfo.title,
+							recording: false,
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+							time: time,
+							img: ""
+						};
+						await writeLocalStorage(tabId.toString(), info);
+						await navigationDatabase.addTabInfo(info);
 					}
 				}
 			}
@@ -759,43 +795,49 @@ async function processTab(tabInfo, tabId){
 
 			if(typeof curWindowInfo.recording !== 'undefined') {
 				if(curWindowInfo.recording) {
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": tabInfo.url,
-						"curTabId": tabId,
-						"prevUrl": y.curUrl,
-						"prevTabId": latestTabInfo.curId,
-						"curTitle": tabInfo.title,
-						"recording": curWindowInfo.recording,
-						"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-						"time": time,
-						"img": filename
-					});
-					await callDesktopCapture(filename);
+					let info = {
+						curUrl: tabInfo.url,
+						curTabId: tabId,
+						prevUrl: y.curUrl,
+						prevTabId: latestTabInfo.curId,
+						curTitle: tabInfo.title,
+						recording: curWindowInfo.recording,
+						action: ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+						time: time,
+						img: filename
+					};
+					await writeLocalStorage(tabId.toString(), info);
+					await navigationDatabase.addTabInfo(info);
+					// await callDesktopCapture(filename);
 				} else {
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": tabInfo.url,
-						"curTabId": tabId,
-						"prevUrl": y.curUrl,
-						"prevTabId": latestTabInfo.curId,
-						"curTitle": tabInfo.title,
-						"recording": false,
-						"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-						"time": time,
-						"img": ""
-					});
+					let info = {
+						curUrl: tabInfo.url,
+						curTabId: tabId,
+						prevUrl: y.curUrl,
+						prevTabId: latestTabInfo.curId,
+						curTitle: tabInfo.title,
+						recording: false,
+						action: ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+						time: time,
+						img: ""
+					};
+					await writeLocalStorage(tabId.toString(), info);
+					await navigationDatabase.addTabInfo(info);
 				} 
 			} else {
-				await writeLocalStorage(tabId.toString(), {
-					"curUrl": tabInfo.url,
-					"curTabId": tabId,
-					"prevUrl": y.curUrl,
-					"prevTabId": latestTabInfo.curId,
-					"curTitle": tabInfo.title,
-					"recording": false,
-					"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-					"time": time,
-					"img": ""
-				});
+				let info = {
+					curUrl: tabInfo.url,
+					curTabId: tabId,
+					prevUrl: y.curUrl,
+					prevTabId: latestTabInfo.curId,
+					curTitle: tabInfo.title,
+					recording: false,
+					action: ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+					time: time,
+					img: ""
+				};
+				await writeLocalStorage(tabId.toString(), info);
+				await navigationDatabase.addTabInfo(info);
 			}
 		}
 	} else {
@@ -826,7 +868,8 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.time = time;
 			curTabInfo.img = filename;
 			await writeLocalStorage(tabId.toString(), curTabInfo);
-			await callDesktopCapture(filename);
+			await navigationDatabase.addTabInfo(curTabInfo);
+			// await callDesktopCapture(filename);
 		} else {
 			let time = timeStamp();
 			let transition = await readLocalStorage('transitionsList');
@@ -842,6 +885,7 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.time = time;
 			curTabInfo.img = "";
 			await writeLocalStorage(tabId.toString(), curTabInfo);
+			await navigationDatabase.addTabInfo(curTabInfo);
 		}
 	}
 }
@@ -876,14 +920,35 @@ async function websocketSendData(data) {
 }
 
 setInterval(async function() {
-	let tableData = await readLocalStorage('tableData');
-	if (typeof tableData === 'undefined') {
-		return;
-	}
+	// let tableData = await readLocalStorage('tableData');
+	// if (typeof tableData === 'undefined') {
+	// 	console.log("Table data is undefined");
+	// 	return;
+	// }
 
-	if (tableData.length > 0) {
-		console.log("exporting data to user's working project folder");
-		let copyData = tableData;
+	// if (tableData.length > 0) {
+	// 	console.log("exporting data to user's working project folder");
+	// 	let copyData = tableData;
+
+	// 	// remove the 'recording' keys from the newData
+	// 	copyData = copyData.map(el => {
+	// 		if (el.recording === true) delete el.recording
+	// 		return el;
+	// 	});
+
+	// 	let result = JSON.stringify(copyData, undefined, 4);
+	// 	// await websocketSendData(result);
+	// 	console.log("Table data:", result);
+	// }
+
+	// let allTabInfos = await navigationDatabase.getAllTabInfos();
+    // console.log("Fetched data:", allTabInfos);
+	let recordingTabInfos = await navigationDatabase.getRecordingTabInfos();
+
+	if(recordingTabInfos.length === 0) {
+		return;
+	} else {
+		let copyData = recordingTabInfos;
 
 		// remove the 'recording' keys from the newData
 		copyData = copyData.map(el => {
@@ -893,9 +958,9 @@ setInterval(async function() {
 
 		let result = JSON.stringify(copyData, undefined, 4);
 		// await websocketSendData(result);
-		console.log(result);
+		console.log("Table data:", result);
 	}
-}, 2000);
+}, 4000);
 
 
 async function defineWebSocket(portNum){

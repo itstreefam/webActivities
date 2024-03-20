@@ -5,7 +5,7 @@
   "main": "src/background.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npm install && webpack && cd node && npm install & npm audit fix",
+    "build": "npm install && webpack && cd node && npm install && npm audit fix",
     "start": "cd node && npm start && cd .."
   },
   "keywords": [],
@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "devtools-detect": "^4.0.1",
+    "dexie": "^3.2.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-draggable": "^4.4.6",
