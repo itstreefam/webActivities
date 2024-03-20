@@ -3,12 +3,25 @@ import Dexie from 'dexie';
 let db = new Dexie('NavigationDatabase');
 db.version(1).stores({
   navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img',
+  navigationHistoryTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img'
 });
+
+// Check if a tab info record exists in history
+async function tabInfoExistsInHistory(curTabId) {
+  const count = await db.navigationHistoryTable.where('curTabId').equals(curTabId).count();
+  return count > 0;
+}
 
 // Add a new tab info record
 async function addTabInfo(tabInfo) {
   try {
     await db.navigationTable.add(tabInfo);
+    if (tabInfo.recording === true) {
+      let tabInfoExistsInDb = await tabInfoExistsInHistory(tabInfo.curTabId);
+      if (!tabInfoExistsInDb) {
+        await db.navigationHistoryTable.add(tabInfo);
+      }
+    }
     console.log('Tab info added successfully:', tabInfo);
   } catch (error) {
     console.error('Failed to add tab info:', error);
@@ -19,6 +32,14 @@ async function addTabInfo(tabInfo) {
 async function updateTabInfoByCurTabId(curTabId, updates) {
   try {
     await db.navigationTable.where('curTabId').equals(curTabId).modify(updates);
+    if (updates.recording === true) {
+      let tabInfoExistsInDb = await tabInfoExistsInHistory(curTabId);
+      if (!tabInfoExistsInDb) {
+        await db.navigationHistoryTable.add(updates);
+      } else {
+        await db.navigationHistoryTable.where('curTabId').equals(curTabId).modify(updates);
+      }
+    }
     console.log(`Tab info with curTabId ${curTabId} updated successfully.`);
   } catch (error) {
     console.error(`Failed to update tab info with curTabId ${curTabId}:`, error);
