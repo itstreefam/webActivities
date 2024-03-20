@@ -1,6 +1,37 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 // import Draggable from 'react-draggable';
+import Dexie from 'dexie';
+
+const db = new Dexie('NavigationDatabase');
+db.version(1).stores({
+  navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img',
+  navigationHistoryTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img'
+});
+
+// Check if a tab info record exists in history
+async function tabInfoExistsInHistory(curTabId) {
+    const count = await db.navigationHistoryTable.where('curTabId').equals(curTabId).count();
+    return count > 0;
+}
+
+// Update tab info based on curTabId
+async function updateTabInfoByCurTabId(curTabId, updates) {
+    try {
+        await db.navigationTable.where('curTabId').equals(curTabId).modify(updates);
+    if (updates.recording === true) {
+        let tabInfoExistsInDb = await tabInfoExistsInHistory(curTabId);
+        if (!tabInfoExistsInDb) {
+            await db.navigationHistoryTable.add(updates);
+        } else {
+            await db.navigationHistoryTable.where('curTabId').equals(curTabId).modify(updates);
+        }
+    }
+        console.log(`Tab info with curTabId ${curTabId} updated successfully.`);
+    } catch (error) {
+        console.error(`Failed to update tab info with curTabId ${curTabId}:`, error);
+    }
+}
 
 // https://stackoverflow.com/questions/20926551/recommended-way-of-making-react-component-div-draggable
 class Draggable extends React.Component {
@@ -141,27 +172,57 @@ const buttonStyle = {
     cursor: 'pointer',
 };
 
-// Create a functional component for recording bar
-const DraggableRecordingBar = () => {
+const DraggableRecordingBar = ({ isRecording, toggleRecording }) => {
+    const buttonText = isRecording ? 'Stop' : 'Start';
+    const barColor = isRecording ? 'green' : 'purple';
+
     return (
         <Draggable
             initialPos={{ x: 0, y: 0 }}
             className='my-draggable'
-            style = {draggableStyle}
+            style={{ ...draggableStyle, backgroundColor: barColor }}
         >
-            <div style={textStyle}>🔴 Tab is recording</div>
+            <div style={textStyle}>{isRecording ? '🔴 Tab is recording' : 'Tab is not recording'}</div>
             <div style={buttonsContainerStyle}>
-                <button style={buttonStyle}>Stop</button>
+                <button style={buttonStyle} onClick={toggleRecording}>{buttonText}</button>
                 <button style={buttonStyle} onClick={hideDraggableRecordingBar}>Hide</button>
             </div>
-      </Draggable>
+        </Draggable>
     );
 };
 
-window.onload = function() {
+async function toggleRecording() {
+    const latestTabInfo = await readLocalStorage('latestTab');
+    const tabInfo = await readLocalStorage(latestTabInfo.curId.toString());
+
+    if (tabInfo && tabInfo.recording) {
+        await chrome.runtime.sendMessage({action: "stopRecording", tabId: latestTabInfo.curId});
+    } else {
+        await chrome.runtime.sendMessage({action: "startRecording", tabId: latestTabInfo.curId});
+    }
+
+    // Update the local storage with the new state
+    tabInfo.recording = !tabInfo.recording;
+    await writeLocalStorage(latestTabInfo.curId.toString(), tabInfo);
+    await updateTabInfoByCurTabId(latestTabInfo.curId, tabInfo);
+
+    // Update UI
+    updateUI(tabInfo.recording);
+}
+
+async function updateUI(isRecording) {
+    const mountNode = document.getElementById('draggable-recording') || document.createElement('div');
+    if (!mountNode.id) mountNode.id = 'draggable-recording';
+    document.body.appendChild(mountNode);
+
+    const root = createRoot(mountNode);
+    root.render(<DraggableRecordingBar isRecording={isRecording} toggleRecording={toggleRecording} />);
+}
+
+window.onload = async function() {
     console.log('Hello from DraggableRecording.js');
 
-    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+    await chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         if (request.message === "testDraggable") {
             console.log('testDraggable message received');
             if (!document.getElementById('draggable-recording')) { // Check if element already exists
@@ -177,5 +238,44 @@ window.onload = function() {
                 draggableRecording.style.display = 'block';
             }
         }
+
+        if (request.action === "updateRecording") {
+            console.log('updateRecording message received');
+            updateUI(request.recording);
+        }
     });
+
+    // get the current tab
+    const latestTabInfo = await readLocalStorage('latestTab');
+    const tabInfo = await readLocalStorage(latestTabInfo.curId.toString());
+    const isRecording = tabInfo ? tabInfo.recording : false;
+
+    updateUI(isRecording);
 };
+
+// Sets a key and stores its value into the storage
+async function writeLocalStorage(key, value) {
+    return new Promise((resolve, reject) => {
+        chrome.storage.local.set({ [key]: value }, function () {
+        if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError.message);
+        } else {
+            resolve();
+        }
+        });
+    });
+}
+  
+// Gets a key value from the storage
+async function readLocalStorage(key) {
+    return new Promise((resolve, reject) => {
+        chrome.storage.local.get([key], function (result) {
+        if (result[key] === undefined) {
+            console.log("Key not found in chrome storage");
+            resolve(undefined);
+        } else {
+            resolve(result[key]);
+        }
+        });
+    });
+}

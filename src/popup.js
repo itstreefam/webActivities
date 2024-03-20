@@ -114,6 +114,7 @@ async function setupRecordAllTabs() {
           tabInfo.recording = toggleAllTabs.checked;
           await writeLocalStorage(tab.id.toString(), tabInfo);
           await updateTabInfoByCurTabId(tab.id, tabInfo);
+          await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: toggleAllTabs.checked });
         }
       }
       await writeLocalStorage(curWindowId, { recording: toggleAllTabs.checked, tabsList });
@@ -185,6 +186,7 @@ async function setupIndividualTab() {
           value.recording = toggle.checked;
           await writeLocalStorage(id.toString(), value);
           await updateTabInfoByCurTabId(id, value);
+          await chrome.tabs.sendMessage(id, { action: "updateRecording", recording: toggle.checked });
         }
       });
     }
