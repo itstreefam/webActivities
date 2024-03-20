@@ -18,7 +18,8 @@
         "nativeMessaging",
         "unlimitedStorage",
         "alarms",
-        "offscreen"
+        "offscreen",
+        "contextMenus"
     ],
 	"host_permissions": [
 	  "*://*/*",
@@ -44,11 +45,24 @@
             "matches": ["<all_urls>"],
             "js": ["./dist/checktitle.bundle.js"],
             "run_at": "document_start"
-        }
+        },
+        {
+            "matches": ["<all_urls>"],
+            "js": ["./dist/draggablerecording.bundle.js"],
+            "run_at": "document_start"
+          }
     ],
     "web_accessible_resources": [
         {
             "resources": ["./dist/devtoolsdetect.bundle.js"],
+            "matches": ["<all_urls>"]
+        },
+        {
+            "resources": ["./dist/checktitle.bundle.js"],
+            "matches": ["<all_urls>"]
+        },
+        {
+            "resources": ["./dist/draggablerecording.bundle.js"],
             "matches": ["<all_urls>"]
         }
     ]
