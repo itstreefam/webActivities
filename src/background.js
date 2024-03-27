@@ -16,17 +16,21 @@ const navigationDatabase = new NavigationDatabase();
 async function createOffscreen() {
 	if (await chrome.offscreen.hasDocument?.()) return;
 	await chrome.offscreen.createDocument({
-		url: 'offscreen.html',
+		url: './dist/offscreen.html',
 		reasons: ['BLOBS'],
 		justification: 'keep service worker running',
 	});
 }
 
 // a message from an offscreen document every 20 second resets the inactivity timer
-chrome.runtime.onMessage.addListener(msg => {
-	if (msg.keepAlive) console.log('keepAlive');
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+	// if (msg.keepAlive) console.log('keepAlive');
+	if (msg.keepAlive) {
+        console.log('keepAlive');
+		sendResponse({alive: true});
+    }
 	if (msg.devtools) console.log('is devtools open? ', msg.devtools);
-	if (!msg.devtools) console.log('is devtools open? ', false);
+	if (!msg.devtools) console.log('is devtools open? ', msg.devtools);
 	if (msg.type) console.log(msg.type);
 });
 
@@ -44,8 +48,8 @@ chrome.runtime.onStartup.addListener(async function () {
 				"recording": false
 			});
 		}
-		createOffscreen();
-		defineWebSocket(portNum);
+		// await createOffscreen();
+		// await defineWebSocket(portNum);
 	} catch (error) {
 		console.err(error);
 	}
@@ -71,9 +75,9 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 
 		if (details.reason === 'install') {
 			let tabs = await getTabs();
-			if (tabs.length === 1 && tabs[0].url === extensionTab) {
-				chrome.tabs.create({ url: newTab });
-			}
+			// if (tabs.length === 1 && tabs[0].url === extensionTab) {
+			// 	chrome.tabs.create({ url: newTab });
+			// }
 			await writeLocalStorage('curWindowId ' + tabs[0].windowId.toString(), {
 				"tabsList": [],
 				"recording": false
@@ -85,9 +89,14 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 				"tabsList": [],
 				"recording": false
 			});
-		};
-		createOffscreen();
-		defineWebSocket(portNum);
+		}
+		// await createOffscreen();
+		// await defineWebSocket(portNum);
+		
+		// chrome.runtime.setUninstallURL('', function () {
+		// 	// send message to draggablerecording to remove the element
+		// 	chrome.runtime.sendMessage({ action: "removeControlUI" });
+		// });
 
 		chrome.contextMenus.create({
 			title: 'Trigger draggable',

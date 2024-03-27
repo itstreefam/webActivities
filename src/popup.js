@@ -241,5 +241,45 @@ window.onload = async function () {
   await setupRecordAllTabs();
   await setupIndividualTab();
   await setupPortNumber();
+
+  await chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
+    if(request.action === "startRecording") {
+      // make sure tab info exists in storage
+      let tabInfoExistsInDb = await tabInfoExists(request.tabId);
+      if (!tabInfoExistsInDb) {
+        const tab = await chrome.tabs.get(request.tabId);
+        const tabInfo = {
+          curUrl: tab.url,
+          curTabId: tab.id,
+          prevUrl: "",
+          prevTabId: tab.id,
+          curTitle: tab.title,
+          recording: true,
+          action: "start recording",
+          time: timeStamp()
+        };
+        await writeLocalStorage(tab.id.toString(), tabInfo);
+        await addTabInfo(tabInfo);
+      } else {
+        const existingTabInfo = await readLocalStorage(request.tabId.toString());
+        existingTabInfo.recording = true;
+        // grab the switch element and set it to checked
+        const toggle = document.getElementById(`switch ${request.tabId}`);
+        toggle.checked = true;
+        await writeLocalStorage(request.tabId.toString(), existingTabInfo);
+        await updateTabInfoByCurTabId(request.tabId, existingTabInfo);
+      }
+    }
+
+    if(request.action === "stopRecording") {
+      const existingTabInfo = await readLocalStorage(request.tabId.toString());
+      existingTabInfo.recording = false;
+      // grab the switch element and set it to unchecked
+      const toggle = document.getElementById(`switch ${request.tabId}`);
+      toggle.checked = false;
+      await writeLocalStorage(request.tabId.toString(), existingTabInfo);
+      await updateTabInfoByCurTabId(request.tabId, existingTabInfo);
+    }
+  });
 };
 
