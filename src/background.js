@@ -24,14 +24,27 @@ async function createOffscreen() {
 
 // a message from an offscreen document every 20 second resets the inactivity timer
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-	// if (msg.keepAlive) console.log('keepAlive');
-	if (msg.keepAlive) {
-        console.log('keepAlive');
-		sendResponse({alive: true});
-    }
-	if (msg.devtools) console.log('is devtools open? ', msg.devtools);
-	if (!msg.devtools) console.log('is devtools open? ', msg.devtools);
-	if (msg.type) console.log(msg.type);
+	try{
+		if (msg.keepAlive) {
+			console.log('Service worker is alive');
+			sendResponse({alive: true});
+		}
+		if (msg.devtools) {
+			console.log('DevTools is open:', msg.devtools);
+			sendResponse({devtools: msg.devtools});
+		}
+		if (msg.type) {
+			if (msg.type === "pageHidden") {
+				console.log('page is now hidden');
+				sendResponse({type: "pageHidden"});
+			} else {
+				console.log('page is now visible');
+				sendResponse({type: "pageVisible"});
+			}
+		}
+	} catch (error) {
+		console.log(error);
+	}
 });
 
 // only reset the storage when one chrome window first starts up
@@ -48,7 +61,7 @@ chrome.runtime.onStartup.addListener(async function () {
 				"recording": false
 			});
 		}
-		// await createOffscreen();
+		await createOffscreen();
 		// await defineWebSocket(portNum);
 	} catch (error) {
 		console.err(error);
@@ -90,7 +103,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 				"recording": false
 			});
 		}
-		// await createOffscreen();
+		await createOffscreen();
 		// await defineWebSocket(portNum);
 		
 		// chrome.runtime.setUninstallURL('', function () {
