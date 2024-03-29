@@ -180,8 +180,8 @@ const draggableStyle = {
     padding: '10px',
     borderRadius: '8px',
     boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.1)',
-    width: '125px',
-    height: '50px',
+    width: '125px !important',
+    height: '50px !important',
     display: 'flex',
     flexDirection: 'column', // Stack children vertically
     alignItems: 'center', // Center children horizontally
