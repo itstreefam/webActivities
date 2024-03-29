@@ -33,6 +33,25 @@ async function updateTabInfoByCurTabId(curTabId, updates) {
     }
 }
 
+async function getCurrentTabInfo() {
+    try {
+        const response = await chrome.runtime.sendMessage({ action: 'getCurrentTab' });
+        if (typeof response.tab === 'string') {
+            // Only parse if it's a string
+            const tabInfo = JSON.parse(response.tab);
+            console.log('Current tab info:', tabInfo);
+            return tabInfo;
+        } else {
+            // If it's already an object, just return it
+            console.log('Current tab info:', response.tab);
+            return response.tab;
+        }
+    } catch (error) {
+        console.error('Error getting current tab info:', error);
+        return null;
+    }
+}
+
 // https://stackoverflow.com/questions/20926551/recommended-way-of-making-react-component-div-draggable
 class Draggable extends React.Component {
     constructor(props) {
@@ -54,10 +73,17 @@ class Draggable extends React.Component {
         }
     }
 
-    componentDidMount() {
-        // Initial positioning in the center
-        const initialX = (window.innerWidth - this.div.offsetWidth) / 2;
-        this.setState({ pos: { x: initialX, y: this.state.pos.y } });
+    async componentDidMount() {
+        const tabInfo = await getCurrentTabInfo();
+        const curTabId = tabInfo.id;
+        const savedPosKey = `draggablePosition ${curTabId}`;
+    
+        const savedPos = await readLocalStorage(savedPosKey);
+        
+        const initialX = savedPos ? savedPos.x : (window.innerWidth - this.div.offsetWidth) / 2;
+        const initialY = savedPos ? savedPos.y : this.state.pos.y;
+
+        this.setState({ pos: { x: initialX, y: initialY } });
         window.addEventListener('resize', this.handleResize);
     }
     
@@ -86,12 +112,19 @@ class Draggable extends React.Component {
         e.stopPropagation();
         e.preventDefault();
     };
-  
-    onMouseUp = (e) => {
+
+    onMouseUp = async (e) => {
         this.setState({ dragging: false });
         e.stopPropagation();
         e.preventDefault();
-    };
+    
+        const position = { x: this.state.pos.x, y: this.state.pos.y };
+    
+        const tabInfo = await getCurrentTabInfo();
+        const curTabId = tabInfo.id;
+
+        await writeLocalStorage(`draggablePosition ${curTabId}`, position);
+    };    
   
     onMouseMove = (e) => {
         if (!this.state.dragging) return;

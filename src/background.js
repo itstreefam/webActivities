@@ -42,6 +42,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 				sendResponse({type: "pageVisible"});
 			}
 		}
+		if (msg.action === "getCurrentTab") {
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+				// Directly send the necessary tab information
+				sendResponse({tab: tabs.length > 0 ? tabs[0] : {}});
+			});
+			return true;
+        }
 	} catch (error) {
 		console.log(error);
 	}
