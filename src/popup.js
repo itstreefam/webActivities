@@ -161,7 +161,8 @@ async function setupIndividualTab() {
           curTitle: title,
           recording: toggle.checked,
           action: "add opened tab that is not in storage",
-          time: timeStamp()
+          time: timeStamp(),
+          img: ""
         };
         await writeLocalStorage(id.toString(), tabInfo);
         await addTabInfo(tabInfo);
