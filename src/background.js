@@ -70,7 +70,7 @@ chrome.runtime.onStartup.addListener(async function () {
 			});
 		}
 		await createOffscreen();
-		await defineWebSocket(portNum);
+		// await defineWebSocket(portNum);
 
 		let tabs = await getAllTabs();
 		for (let i = 0; i < tabs.length; i++) {
@@ -130,7 +130,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 			});
 		}
 		await createOffscreen();
-		await defineWebSocket(portNum);
+		// await defineWebSocket(portNum);
 		
 		chrome.contextMenus.create({
 			title: 'Trigger draggable',
@@ -273,6 +273,7 @@ chrome.windows.onCreated.addListener(async function (window) {
 
 // when a tab is opened, set appropriate info for latestTab
 // tabs.onActivated handles tabs activities in the same chrome window
+// in linux, this gets triggered when hyperlink is opened in new window
 chrome.tabs.onActivated.addListener(async function (activeInfo) {
 	console.log("onActivated: ", activeInfo);
 
