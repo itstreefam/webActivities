@@ -1000,15 +1000,35 @@ async function websocketSendData(data) {
 }
 
 setInterval(async function() {
-	let tableData = await readLocalStorage('tableData');
-	if (typeof tableData === 'undefined') {
-		console.log("Table data is undefined");
-		return;
-	}
+	// let tableData = await readLocalStorage('tableData');
+	// if (typeof tableData === 'undefined') {
+	// 	console.log("Table data is undefined");
+	// 	return;
+	// }
 
-	if (tableData.length > 0) {
-		console.log("exporting data to user's working project folder");
-		let copyData = tableData;
+	// if (tableData.length > 0) {
+	// 	console.log("exporting data to user's working project folder");
+	// 	let copyData = tableData;
+
+	// 	// remove the 'recording' keys from the newData
+	// 	copyData = copyData.map(el => {
+	// 		if (el.recording === true) delete el.recording
+	// 		return el;
+	// 	});
+
+	// 	let result = JSON.stringify(copyData, undefined, 4);
+	// 	// await websocketSendData(result);
+	// 	console.log("Table data:", result);
+	// }
+
+	// let allTabInfos = await navigationDatabase.getAllTabInfos();
+    // console.log("Fetched data:", allTabInfos);
+	let recordingTabInfos = await navigationDatabase.getRecordingTabInfos();
+
+	if(recordingTabInfos.length === 0) {
+		return;
+	} else {
+		let copyData = recordingTabInfos;
 
 		// remove the 'recording' keys from the newData
 		copyData = copyData.map(el => {
@@ -1020,26 +1040,6 @@ setInterval(async function() {
 		// await websocketSendData(result);
 		console.log("Table data:", result);
 	}
-
-	// let allTabInfos = await navigationDatabase.getAllTabInfos();
-    // console.log("Fetched data:", allTabInfos);
-	// let recordingTabInfos = await navigationDatabase.getRecordingTabInfos();
-
-	// if(recordingTabInfos.length === 0) {
-	// 	return;
-	// } else {
-	// 	let copyData = recordingTabInfos;
-
-	// 	// remove the 'recording' keys from the newData
-	// 	copyData = copyData.map(el => {
-	// 		if (el.recording === true) delete el.recording
-	// 		return el;
-	// 	});
-
-	// 	let result = JSON.stringify(copyData, undefined, 4);
-	// 	await websocketSendData(result);
-	// 	// console.log("Table data:", result);
-	// }
 }, 4000);
 
 

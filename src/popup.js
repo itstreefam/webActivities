@@ -96,17 +96,15 @@ async function setupRecordAllTabs() {
     toggleAllTabs.id = `switchAllTabs ${currentWindow.id}`;
     toggleAllTabs.checked = curWindowInfo?.recording ?? false;
 
-    console.log("Checkbox before toggle:", toggleAllTabs.checked);
     toggleAllTabs.addEventListener("click", async () => {
-      console.log("Checkbox after toggle:", toggleAllTabs.checked);
       const urlList = document.getElementById("urlList");
-      urlList.querySelectorAll('.toggle').forEach(toggle => {
+      urlList.querySelectorAll(".toggle").forEach(async (toggle) => {
         toggle.checked = toggleAllTabs.checked;
       });
-    
+
       const currentWindow = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
-      const tabsList = currentWindow.tabs.map(tab => tab.id);
-      const updates = currentWindow.tabs.map(async tab => {
+      const tabsList = currentWindow.tabs.map(async (tab) => tab.id);
+      const updates = currentWindow.tabs.map(async (tab) => {
         const tabInfo = await readLocalStorage(tab.id.toString());
         if (tabInfo) {
           tabInfo.recording = toggleAllTabs.checked;
@@ -115,35 +113,10 @@ async function setupRecordAllTabs() {
           await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: toggleAllTabs.checked });
         }
       });
-    
-      await Promise.all(updates);
-      await writeLocalStorage(`curWindowId ${currentWindow.id}`, { recording: toggleAllTabs.checked, tabsList });
+
+      await Promise.all([tabsList, updates]);
+      await writeLocalStorage(curWindowId, { tabsList: tabsList, recording: toggleAllTabs.checked});
     });
-
-    // toggleAllTabs.addEventListener("click", async () => {
-    //   // updating UI for all tabs in current window
-    //   const urlList = document.getElementById("urlList");
-    //   for (const urlListChild of urlList.children) {
-    //     for (const urlListChildChild of urlListChild.children) {
-    //       if (urlListChildChild.className === "toggle") {
-    //         urlListChildChild.checked = toggleAllTabs.checked;
-    //       }
-    //     }
-    //   }
-
-    //   // set recording for all tabs in current window
-    //   const tabsList = currentWindow.tabs.map(tab => tab.id);
-    //   for (const tab of currentWindow.tabs) {
-    //     const tabInfo = await readLocalStorage(tab.id.toString());
-    //     if (tabInfo) {
-    //       tabInfo.recording = toggleAllTabs.checked;
-    //       await writeLocalStorage(tab.id.toString(), tabInfo);
-    //       await updateTabInfoByCurTabId(tab.id, tabInfo);
-    //       await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: toggleAllTabs.checked });
-    //     }
-    //   }
-    //   await writeLocalStorage(curWindowId, { recording: toggleAllTabs.checked, tabsList });
-    // });
   } catch (error) {
     console.error("Failed to setup recording for all tabs:", error);
   }
