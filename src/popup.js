@@ -103,18 +103,19 @@ async function setupRecordAllTabs() {
       });
 
       const currentWindow = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
-      const tabsList = currentWindow.tabs.map(async (tab) => tab.id);
+      const tabsList = currentWindow.tabs.map(tab => tab.id);
       const updates = currentWindow.tabs.map(async (tab) => {
-        const tabInfo = await readLocalStorage(tab.id.toString());
+        const tabIdStr = tab.id.toString();
+        const tabInfo = await readLocalStorage(tabIdStr);
         if (tabInfo) {
           tabInfo.recording = toggleAllTabs.checked;
-          await writeLocalStorage(tab.id.toString(), tabInfo);
+          await writeLocalStorage(tabIdStr, tabInfo);
           await updateTabInfoByCurTabId(tab.id, tabInfo);
           await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: toggleAllTabs.checked });
         }
       });
 
-      await Promise.all([tabsList, updates]);
+      await Promise.all(updates);
       await writeLocalStorage(curWindowId, { tabsList: tabsList, recording: toggleAllTabs.checked});
     });
   } catch (error) {

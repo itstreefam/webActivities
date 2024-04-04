@@ -450,35 +450,38 @@ chrome.tabs.onRemoved.addListener(async function (tabId, removeInfo) {
 
 chrome.storage.onChanged.addListener(function (changes) {
 	Object.entries(changes).forEach(([key, { oldValue, newValue }]) => {
-		console.log(key, oldValue, newValue);
-		
-		if (key.includes("curWindowId")) {
+		if (shouldIgnoreChange(key) || objCompare(oldValue, newValue)) {
 			return;
 		}
 
-		if (objCompare(oldValue, newValue)) {
-			return;
-		}
+		console.log(key, oldValue, newValue);
 
 		try {
-			if (newValue.recording !== undefined) {
-				if (newValue.recording) {
-					handleTableData([newValue]);
-				}
-			}
+			if (newValue?.recording) {
+                handleTableData([newValue]);
+            }
 		} catch (error) {
 			console.log(error);
 		}
 	});
 });
-  
+
+function shouldIgnoreChange(key) {
+	return ["curWindowId", "latestTab", "closedTabId", "transitionsList", "port", "tableData"].some((k) => key.includes(k));
+}
+
+let lastUpdatePromise = Promise.resolve();
+
 async function handleTableData(newData) {
-	let tableData = await readLocalStorage('tableData');
-	if (tableData.length === 0) {
-		await writeLocalStorage('tableData', newData);
-		return;
-	}
-	await writeLocalStorage('tableData', tableData.concat(newData));
+    lastUpdatePromise = lastUpdatePromise.then(async () => {
+        const tableData = await readLocalStorage('tableData') || [];
+        const updatedTableData = tableData.concat(newData);
+        await writeLocalStorage('tableData', updatedTableData);
+    }).catch(error => {
+        console.error('Error processing update for tableData:', error);
+    });
+
+    return lastUpdatePromise;
 }
 
 function objCompare(obj1, obj2) {
@@ -1000,35 +1003,15 @@ async function websocketSendData(data) {
 }
 
 setInterval(async function() {
-	// let tableData = await readLocalStorage('tableData');
-	// if (typeof tableData === 'undefined') {
-	// 	console.log("Table data is undefined");
-	// 	return;
-	// }
-
-	// if (tableData.length > 0) {
-	// 	console.log("exporting data to user's working project folder");
-	// 	let copyData = tableData;
-
-	// 	// remove the 'recording' keys from the newData
-	// 	copyData = copyData.map(el => {
-	// 		if (el.recording === true) delete el.recording
-	// 		return el;
-	// 	});
-
-	// 	let result = JSON.stringify(copyData, undefined, 4);
-	// 	// await websocketSendData(result);
-	// 	console.log("Table data:", result);
-	// }
-
-	// let allTabInfos = await navigationDatabase.getAllTabInfos();
-    // console.log("Fetched data:", allTabInfos);
-	let recordingTabInfos = await navigationDatabase.getRecordingTabInfos();
-
-	if(recordingTabInfos.length === 0) {
+	let tableData = await readLocalStorage('tableData');
+	if (typeof tableData === 'undefined') {
+		console.log("Table data is undefined");
 		return;
-	} else {
-		let copyData = recordingTabInfos;
+	}
+
+	if (tableData.length > 0) {
+		console.log("exporting data to user's working project folder");
+		let copyData = tableData;
 
 		// remove the 'recording' keys from the newData
 		copyData = copyData.map(el => {
@@ -1040,6 +1023,26 @@ setInterval(async function() {
 		// await websocketSendData(result);
 		console.log("Table data:", result);
 	}
+
+	// let allTabInfos = await navigationDatabase.getAllTabInfos();
+    // console.log("Fetched data:", allTabInfos);
+	// let recordingTabInfos = await navigationDatabase.getRecordingTabInfos();
+
+	// if(recordingTabInfos.length === 0) {
+	// 	return;
+	// } else {
+	// 	let copyData = recordingTabInfos;
+
+	// 	// remove the 'recording' keys from the newData
+	// 	copyData = copyData.map(el => {
+	// 		if (el.recording === true) delete el.recording
+	// 		return el;
+	// 	});
+
+	// 	let result = JSON.stringify(copyData, undefined, 4);
+	// 	// await websocketSendData(result);
+	// 	console.log("Table data:", result);
+	// }
 }, 4000);
 
 
