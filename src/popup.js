@@ -88,22 +88,26 @@ async function setupRecordAllTabs() {
   recordAllTabs.appendChild(divAllTabs);
 
   try {
-    const currentWindow = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
-    const curWindowId = `curWindowId ${currentWindow.id}`;
-    const curWindowInfo = await readLocalStorage(curWindowId);
-    console.log("Current window info:", curWindowInfo);
+    let currentWindow = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
+    let curWindowId = `curWindowId ${currentWindow.id}`;
+    let curWindowInfo = await readLocalStorage(curWindowId);
 
     toggleAllTabs.id = `switchAllTabs ${currentWindow.id}`;
     toggleAllTabs.checked = curWindowInfo?.recording ?? false;
 
     toggleAllTabs.addEventListener("click", async () => {
       const urlList = document.getElementById("urlList");
-      urlList.querySelectorAll(".toggle").forEach(async (toggle) => {
-        toggle.checked = toggleAllTabs.checked;
-      });
-
-      const currentWindow = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
+      const toggles = urlList.querySelectorAll(".toggle");
+      for (let toggle of toggles) {
+        toggle.checked = toggleAllTabs.checked; // Update UI immediately
+      }
       const tabsList = currentWindow.tabs.map(tab => tab.id);
+
+      // Update current window recording status
+      curWindowInfo.recording = toggleAllTabs.checked;
+      await writeLocalStorage(curWindowId, { tabsList: tabsList, recording: curWindowInfo.recording });
+
+      // Process updates for each tab
       const updates = currentWindow.tabs.map(async (tab) => {
         const tabIdStr = tab.id.toString();
         const tabInfo = await readLocalStorage(tabIdStr);
@@ -115,8 +119,8 @@ async function setupRecordAllTabs() {
         }
       });
 
+      // Wait for all updates to complete
       await Promise.all(updates);
-      await writeLocalStorage(curWindowId, { tabsList: tabsList, recording: toggleAllTabs.checked});
     });
   } catch (error) {
     console.error("Failed to setup recording for all tabs:", error);

@@ -641,37 +641,29 @@ async function processTab(tabInfo, tabId){
 					}
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
-						if(curWindowInfo.recording) {
-							let info = {
-								curUrl: newTabInfo.url,
-								curTabId: tabId,
-								prevUrl: ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-								prevTabId: ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-								curTitle: newTabInfo.title,
-								recording: curWindowInfo.recording,
-								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								time: time,
-								img: filename
-							};
-							await writeLocalStorage(tabId.toString(), info);
-							await navigationDatabase.addTabInfo(info);
+						// console.log('case 1.1');
+						let prevTabInfo = await readLocalStorage(newTabInfo.openerTabId.toString());
+						
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+							prevTabId: ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+							curTitle: newTabInfo.title,
+							recording: ((prevTabInfo.recording) ? prevTabInfo.recording : curWindowInfo.recording),
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							time: time,
+							img: filename
+						};
+
+						await writeLocalStorage(tabId.toString(), info);
+						await navigationDatabase.addTabInfo(info);
+						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
+						if(info.recording === true) {
 							await callDesktopCapture(filename);
-						} else {
-							let info = {
-								curUrl: newTabInfo.url,
-								curTabId: tabId,
-								prevUrl: ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-								prevTabId: ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-								curTitle: newTabInfo.title,
-								recording: false,
-								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								time: time,
-								img: ""
-							};
-							await writeLocalStorage(tabId.toString(), info);
-							await navigationDatabase.addTabInfo(info);
 						}
 					} else {
+						// console.log('case 1.2');
 						let info = {
 							curUrl: newTabInfo.url,
 							curTabId: tabId,
