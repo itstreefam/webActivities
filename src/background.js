@@ -862,36 +862,24 @@ async function processTab(tabInfo, tabId){
 			}
 
 			if(typeof curWindowInfo.recording !== 'undefined') {
-				if(curWindowInfo.recording) {
-					let info = {
-						curUrl: tabInfo.url,
-						curTabId: tabId,
-						prevUrl: y.curUrl,
-						prevTabId: latestTabInfo.curId,
-						curTitle: tabInfo.title,
-						recording: curWindowInfo.recording,
-						action: ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-						time: time,
-						img: filename
-					};
-					await writeLocalStorage(tabId.toString(), info);
-					await navigationDatabase.addTabInfo(info);
+				let info = {
+					curUrl: tabInfo.url,
+					curTabId: tabId,
+					prevUrl: y.curUrl,
+					prevTabId: latestTabInfo.curId,
+					curTitle: tabInfo.title,
+					recording: ((y.recording) ? y.recording : curWindowInfo.recording),
+					action: ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+					time: time,
+					img: filename
+				};
+
+				await writeLocalStorage(tabId.toString(), info);
+				await navigationDatabase.addTabInfo(info);
+				await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
+				if(info.recording === true) {
 					await callDesktopCapture(filename);
-				} else {
-					let info = {
-						curUrl: tabInfo.url,
-						curTabId: tabId,
-						prevUrl: y.curUrl,
-						prevTabId: latestTabInfo.curId,
-						curTitle: tabInfo.title,
-						recording: false,
-						action: ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-						time: time,
-						img: ""
-					};
-					await writeLocalStorage(tabId.toString(), info);
-					await navigationDatabase.addTabInfo(info);
-				} 
+				}
 			} else {
 				let info = {
 					curUrl: tabInfo.url,
