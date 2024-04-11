@@ -188,15 +188,19 @@ async function getLastFocusedWindow() {
 
 // check windows focus since tabs.onActivated does not get triggered when navigating between different chrome windows
 chrome.windows.onFocusChanged.addListener(async function (windowId) {
-	try {	
+	try {
 		if (windowId !== -1) {
-			let activeTab = await getActiveTab();
 			let latestTab = await readLocalStorage("latestTab");
-			latestTab.prevId = latestTab.curId;
-			latestTab.prevWinId = latestTab.curWinId;
-			latestTab.curId = activeTab.id;
-			latestTab.curWinId = activeTab.windowId;
-			await writeLocalStorage("latestTab", latestTab);
+			console.log("latestTab: ", latestTab);
+
+			let activeTab = await getActiveTab();
+			console.log("activeTab: ", activeTab);
+
+			// latestTab.prevId = latestTab.curId;
+			// latestTab.prevWinId = latestTab.curWinId;
+			// latestTab.curId = activeTab.id;
+			// latestTab.curWinId = activeTab.windowId;
+			// await writeLocalStorage("latestTab", latestTab);
 	
 			let tabInfo = await readLocalStorage(String(latestTab.curId));
 			if (typeof tabInfo === "undefined") {
@@ -467,7 +471,7 @@ chrome.storage.onChanged.addListener(function (changes) {
 });
 
 function shouldIgnoreChange(key) {
-	return ["curWindowId", "latestTab", "closedTabId", "transitionsList", "port", "tableData"].some((k) => key.includes(k));
+	return ["curWindowId", "latestTab", "closedTabId", "transitionsList", "port", "tableData", "draggablePosition"].some((k) => key.includes(k));
 }
 
 let lastUpdatePromise = Promise.resolve();
@@ -807,37 +811,26 @@ async function processTab(tabInfo, tabId){
 					}
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
-						if(curWindowInfo.recording) {
-							let info = {
-								curUrl: newTabInfo.url,
-								curTabId: tabId,
-								prevUrl: x.curUrl,
-								prevTabId: latestTabInfo.prevId,
-								curTitle: newTabInfo.title,
-								recording: curWindowInfo.recording,
-								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-								time: time,
-								img: filename
-							};
-							await writeLocalStorage(tabId.toString(), info);
-							await navigationDatabase.addTabInfo(info);
+						console.log('case 4.1');
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: x.curUrl,
+							prevTabId: latestTabInfo.prevId,
+							curTitle: newTabInfo.title,
+							recording: ((x.recording) ? x.recording : curWindowInfo.recording),
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+							time: time,
+							img: filename
+						};
+						await writeLocalStorage(tabId.toString(), info);
+						await navigationDatabase.addTabInfo(info);
+						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
+						if(info.recording === true) {
 							await callDesktopCapture(filename);
-						} else {
-							let info = {
-								curUrl: newTabInfo.url,
-								curTabId: tabId,
-								prevUrl: x.curUrl,
-								prevTabId: latestTabInfo.prevId,
-								curTitle: newTabInfo.title,
-								recording: false,
-								action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-								time: time,
-								img: ""
-							};
-							await writeLocalStorage(tabId.toString(), info);
-							await navigationDatabase.addTabInfo(info);
 						}
 					} else {
+						console.log('case 4.2');
 						let info = {
 							curUrl: newTabInfo.url,
 							curTabId: tabId,
