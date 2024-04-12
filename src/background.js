@@ -69,7 +69,7 @@ chrome.runtime.onStartup.addListener(async function () {
 			});
 		}
 		await createOffscreen();
-		// await defineWebSocket(portNum);
+		await defineWebSocket(portNum);
 	} catch (error) {
 		console.err(error);
 	}
@@ -111,7 +111,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 			});
 		}
 		await createOffscreen();
-		// await defineWebSocket(portNum);
+		await defineWebSocket(portNum);
 		
 		// chrome.runtime.setUninstallURL('', function () {
 		// 	// send message to draggablerecording to remove the element
@@ -986,7 +986,7 @@ setInterval(async function() {
 		});
 
 		let result = JSON.stringify(copyData, undefined, 4);
-		// await websocketSendData(result);
+		await websocketSendData(result);
 		console.log("Table data:", result);
 	}
 }, 4000);

@@ -13,7 +13,7 @@ portfinder.setHighestPort(65535); // default: 65535
 
 portfinder.getPortPromise()
     .then((port) => {
-        const user_dir = String.raw`C:\Users\thien\Desktop\test-script`;
+        const user_dir = String.raw`"C:\Users\zhouh\OneDrive\Documents\Desktop"`;
 
         // Start the first interval
 	    intervalId = setTimeout(checkAppSwitch, 500);
