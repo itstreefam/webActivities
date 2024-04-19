@@ -245,31 +245,6 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 				await callDesktopCapture(filename);
 			}
 
-
-			// if(tabInfo.recording && prevTabInfo.recording) {
-			// 	console.log("Recording between two tabs of different windows");
-			// 	console.log('tabInfo: ', tabInfo);
-			// 	console.log('prevTabInfo: ', prevTabInfo);
-
-				// let time = timeStamp();
-				// let filename = `screencapture-n${String(latestTab.curId)}_${time}.png`;
-
-				// let info = {
-				// 	action: "revisit",
-				// 	curUrl: tabInfo.curUrl,
-				// 	curTabId: tabInfo.curTabId,
-				// 	prevUrl: prevTabInfo.curUrl,
-				// 	prevTabId: prevTabInfo.curTabId,
-				// 	curTitle: tabInfo.curTitle,
-				// 	recording: tabInfo.recording,
-				// 	time: time,
-				// 	img: filename
-				// };
-				// await writeLocalStorage(String(latestTab.curId), info);
-				// await navigationDatabase.addTabInfo(info);
-				// await callDesktopCapture(filename);
-			// }
-
 		}
 	} catch (error) {
 		console.error(error);

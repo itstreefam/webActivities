@@ -188,8 +188,16 @@ function unhide() {
     }
 }
 
+let isHistoryShown = false;
 async function showHistory() {
-    // show history: ask Tri how to get the data
+    const historyContainer = document.getElementById('recordedNames');
+
+    // Toggle visibility if data is already processed
+    if (isHistoryShown) {
+        historyContainer.style.display = historyContainer.style.display === 'none' ? 'block' : 'none';
+        return;
+    }
+
     let tableData = await readLocalStorage('tableData');
     if (typeof tableData === 'undefined') {
         console.log("Table data is undefined");
@@ -198,24 +206,29 @@ async function showHistory() {
 
     if (tableData.length > 0) {
         console.log("exporting data to user's working project folder");
-        let copyData = tableData;
 
-        // remove the 'recording' keys from the newData
-        copyData = copyData.map(el => {
-            if (el.recording === true) delete el.recording
+        let titleCounts = {};
+
+        // Map over the data, removing the 'recording' key and count titles
+        let copyData = tableData.map(el => {
+            if (el.recording === true) delete el.recording;
+
+           titleCounts[el.curTitle] = titleCounts[el.curTitle] ? titleCounts[el.curTitle] + 1 : 1;
             return el;
         });
 
-        let result = JSON.stringify(copyData, undefined, 4);
-        // await websocketSendData(result);
-        var stringify = JSON.parse(result);
-        for (var i = 0; i < stringify.length; i++) {
-            const title = document.createElement("p");
-            title.innerText = stringify[i]['curTitle'];
-            document.getElementById("recordedNames").appendChild(title);
-            console.log("test name!!!!! ", stringify[i]['curTitle']);
+        // Clear the container before appending new items
+        historyContainer.innerHTML = '';
+
+        // Create elements for each unique title and append to the container
+        for (let title in titleCounts) {
+            const titleElement = document.createElement("p");
+            titleElement.innerText = `${title} (${titleCounts[title]})`;
+            historyContainer.appendChild(titleElement);
+            console.log("test name!!!!! ", `${title} (${titleCounts[title]})`);
         }
-        console.log("Table data:", result);
+
+        isHistoryShown = true; // Set visible state to true after first processing
     }
 
 }
@@ -469,8 +482,4 @@ async function readLocalStorage(key) {
         });
     });
 }
-
-//do the training part first and then set up 
-//https://myirb.wusm.wustl.edu/
-//https://hrpo.wustl.edu/training/human-subjects-education-citi/   <- do this first 
 
