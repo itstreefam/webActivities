@@ -70,7 +70,6 @@ chrome.runtime.onStartup.addListener(async function () {
 			});
 		}
 		await createOffscreen();
-		// await defineWebSocket(portNum);
 
 		let tabs = await getAllTabs();
 		for (let i = 0; i < tabs.length; i++) {
@@ -89,6 +88,8 @@ chrome.runtime.onStartup.addListener(async function () {
 			await writeLocalStorage(String(tab.id), info);
 			await navigationDatabase.addTabInfo(info);
 		}
+
+		await defineWebSocket(portNum);
 	} catch (error) {
 		console.err(error);
 	}
@@ -130,7 +131,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 			});
 		}
 		await createOffscreen();
-		// await defineWebSocket(portNum);
+		await defineWebSocket(portNum);
 		
 		chrome.contextMenus.create({
 			title: 'Trigger draggable',
@@ -895,7 +896,7 @@ setInterval(async function() {
 		});
 
 		let result = JSON.stringify(copyData, undefined, 4);
-		// await websocketSendData(result);
+		await websocketSendData(result);
 		console.log("Table data:", result);
 	}
 
