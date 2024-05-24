@@ -1,30 +1,31 @@
 import Dexie from 'dexie';
 
-export class NavigationDatabase {
-    constructor(dbName) {
-        if (!dbName) {
-            this.dbName = 'NavigationDatabase';
+class NavigationDatabase {
+    constructor(dbName = 'NavigationDatabase') {
+        if (!NavigationDatabase.instance) {
+            this.db = new Dexie(dbName);
+
+            // Define the database schema
+            this.db.version(1).stores({
+                navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img',
+                navigationHistoryTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img'
+            });
+
+            NavigationDatabase.instance = this;
         }
 
-        this.dbName = dbName;
-        // Initialize Dexie database
-        this.db = new Dexie(dbName);
-        // Define the database schema
-        this.db.version(1).stores({
-            navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img',
-            navigationHistoryTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img'
-        });
+        return NavigationDatabase.instance;
+    }
+
+    timeStamp() {
+        let d = new Date();
+        let seconds = Math.round(d.getTime() / 1000);
+        return seconds;
     }
 
     // Add a new tab info record
     async addTabInfo(tableName, tabInfo) {
         try {
-            if (tableName === 'navigationHistoryTable') {
-                if (tabInfo.recording === true){
-                    await this.db.navigationHistoryTable.add(tabInfo);
-                    return;
-                }
-            }
             await this.db[tableName].add(tabInfo);
             let response = `Tab info for ${tabInfo.curTabId} added successfully to table ${tableName}.`;
             console.log(response);
@@ -51,14 +52,45 @@ export class NavigationDatabase {
         }
     }
 
+    // Check if a tab info record exists in navigationTable
+    async tabInfoExists(curTabId) {
+        try {
+            const count = await this.db.navigationTable.where('curTabId').equals(curTabId).count();
+            return count > 0;
+        } catch (error) {
+            console.error('Failed to check if tab info exists:', error);
+            return false;
+        }
+    }
+
+    // check if a tab info record exists in navigationHistoryTable
+    async tabInfoExistsInHistory(curTabId) {
+        try {
+            const count = await this.db.navigationHistoryTable.where('curTabId').equals(curTabId).count();
+            return count > 0;
+        } catch (error) {
+            console.error('Failed to check if tab info exists:', error);
+            return false;
+        }
+    }
+
     // Update tab info based on curTabId, only for navigationTable and navigationHistoryTable
     async updateTabInfoByCurTabId(curTabId, updates) {
         try {
-            await db.navigationTable.where('curTabId').equals(curTabId).modify(updates);
-            if (updates.recording === true){
-                await db.navigationHistoryTable.where('curTabId').equals(curTabId).modify(updates);
+            // update the time field
+            updates.time = this.timeStamp(); // this lets us know when the tab was last updated (usually when the recording status changes)
+
+            // await this.db.navigationTable.where('curTabId').equals(curTabId).modify(updates);
+            await this.addTabInfo('navigationTable', updates);
+            console.log(`Tab info with curTabId ${curTabId} updated successfully in navigationTable.`);
+            const existsInHistoryTable = await this.tabInfoExistsInHistory(curTabId);
+            if(updates.recording === true && !existsInHistoryTable){
+                console.log(`Tab info with curTabId ${curTabId} does not exist in navigationHistoryTable yet. Adding it now`);
+                await this.addTabInfo('navigationHistoryTable', updates);
+            } else {
+                await this.db.navigationHistoryTable.where('curTabId').equals(curTabId).modify(updates);
+                console.log(`Tab info with curTabId ${curTabId} updated successfully in navigationHistoryTable.`);
             }
-            console.log(`Tab info with curTabId ${curTabId} updated successfully.`);
         } catch (error) {
             console.error(`Failed to update tab info with curTabId ${curTabId}:`, error);
         }
@@ -129,3 +161,8 @@ export class NavigationDatabase {
         }
     }
 }
+
+const navigationDB = new NavigationDatabase();
+Object.freeze(navigationDB);
+
+export default navigationDB;

@@ -1,49 +1,10 @@
-import Dexie from 'dexie';
+import navigationDB from './navigationdb';
+const db = navigationDB.db;
 
-let db = new Dexie('NavigationDatabase');
-db.version(1).stores({
-  navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img',
-  navigationHistoryTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img'
-});
-
-// Check if a tab info record exists in history
-async function tabInfoExistsInHistory(curTabId) {
-  const count = await db.navigationHistoryTable.where('curTabId').equals(curTabId).count();
+// Check if a tab info record exists
+async function tabInfoExists(curTabId) {
+  const count = await db.navigationTable.where('curTabId').equals(curTabId).count();
   return count > 0;
-}
-
-// Add a new tab info record
-async function addTabInfo(tabInfo) {
-  try {
-    await db.navigationTable.add(tabInfo);
-    if (tabInfo.recording === true) {
-      let tabInfoExistsInDb = await tabInfoExistsInHistory(tabInfo.curTabId);
-      if (!tabInfoExistsInDb) {
-        await db.navigationHistoryTable.add(tabInfo);
-      }
-    }
-    console.log('Tab info added successfully:', tabInfo);
-  } catch (error) {
-    console.error('Failed to add tab info:', error);
-  }
-}
-
-// Update tab info based on curTabId
-async function updateTabInfoByCurTabId(curTabId, updates) {
-  try {
-    await db.navigationTable.where('curTabId').equals(curTabId).modify(updates);
-    if (updates.recording === true) {
-      let tabInfoExistsInDb = await tabInfoExistsInHistory(curTabId);
-      if (!tabInfoExistsInDb) {
-        await db.navigationHistoryTable.add(updates);
-      } else {
-        await db.navigationHistoryTable.where('curTabId').equals(curTabId).modify(updates);
-      }
-    }
-    console.log(`Tab info with curTabId ${curTabId} updated successfully.`);
-  } catch (error) {
-    console.error(`Failed to update tab info with curTabId ${curTabId}:`, error);
-  }
 }
 
 // Sets a key and stores its value into the storage
@@ -114,7 +75,7 @@ async function setupRecordAllTabs() {
         if (tabInfo) {
           tabInfo.recording = toggleAllTabs.checked;
           await writeLocalStorage(tabIdStr, tabInfo);
-          await updateTabInfoByCurTabId(tab.id, tabInfo);
+          await navigationDB.updateTabInfoByCurTabId(tab.id, tabInfo);
           await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: toggleAllTabs.checked });
         }
       });
@@ -125,12 +86,6 @@ async function setupRecordAllTabs() {
   } catch (error) {
     console.error("Failed to setup recording for all tabs:", error);
   }
-}
-
-// Check if a tab info record exists
-async function tabInfoExists(curTabId) {
-  const count = await db.navigationTable.where('curTabId').equals(curTabId).count();
-  return count > 0;
 }
 
 /* record any individual tab in current window */
@@ -168,7 +123,7 @@ async function setupIndividualTab() {
           img: ""
         };
         await writeLocalStorage(id.toString(), tabInfo);
-        await addTabInfo(tabInfo);
+        await navigationDB.addTabInfo("navigationTable", tabInfo);
       } else {
         const existingTabInfo = await readLocalStorage(id.toString());
         toggle.checked = existingTabInfo.recording;
@@ -189,7 +144,7 @@ async function setupIndividualTab() {
         if (typeof value !== 'undefined') {
           value.recording = toggle.checked;
           await writeLocalStorage(id.toString(), value);
-          await updateTabInfoByCurTabId(id, value);
+          await navigationDB.updateTabInfoByCurTabId(id, value);
           await chrome.tabs.sendMessage(id, { action: "updateRecording", recording: toggle.checked });
         }
       });
@@ -245,45 +200,5 @@ window.onload = async function () {
   await setupRecordAllTabs();
   await setupIndividualTab();
   await setupPortNumber();
-
-  // await chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
-  //   if(request.action === "startRecording") {
-  //     // make sure tab info exists in storage
-  //     let tabInfoExistsInDb = await tabInfoExists(request.tabId);
-  //     if (!tabInfoExistsInDb) {
-  //       const tab = await chrome.tabs.get(request.tabId);
-  //       const tabInfo = {
-  //         curUrl: tab.url,
-  //         curTabId: tab.id,
-  //         prevUrl: "",
-  //         prevTabId: tab.id,
-  //         curTitle: tab.title,
-  //         recording: true,
-  //         action: "start recording",
-  //         time: timeStamp()
-  //       };
-  //       await writeLocalStorage(tab.id.toString(), tabInfo);
-  //       await addTabInfo(tabInfo);
-  //     } else {
-  //       const existingTabInfo = await readLocalStorage(request.tabId.toString());
-  //       existingTabInfo.recording = true;
-  //       // grab the switch element and set it to checked
-  //       const toggle = document.getElementById(`switch ${request.tabId}`);
-  //       toggle.checked = true;
-  //       await writeLocalStorage(request.tabId.toString(), existingTabInfo);
-  //       await updateTabInfoByCurTabId(request.tabId, existingTabInfo);
-  //     }
-  //   }
-
-  //   if(request.action === "stopRecording") {
-  //     const existingTabInfo = await readLocalStorage(request.tabId.toString());
-  //     existingTabInfo.recording = false;
-  //     // grab the switch element and set it to unchecked
-  //     const toggle = document.getElementById(`switch ${request.tabId}`);
-  //     toggle.checked = false;
-  //     await writeLocalStorage(request.tabId.toString(), existingTabInfo);
-  //     await updateTabInfoByCurTabId(request.tabId, existingTabInfo);
-  //   }
-  // });
 };
 

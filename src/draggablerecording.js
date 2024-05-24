@@ -1,37 +1,9 @@
 import React, { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 // import Draggable from 'react-draggable';
-import Dexie from 'dexie';
-
-const db = new Dexie('NavigationDatabase');
-db.version(1).stores({
-    navigationTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img',
-    navigationHistoryTable: '++id, curTabId, curUrl, prevUrl, prevTabId, curTitle, recording, action, time, img'
-});
-
-// Check if a tab info record exists in history
-async function tabInfoExistsInHistory(curTabId) {
-    const count = await db.navigationHistoryTable.where('curTabId').equals(curTabId).count();
-    return count > 0;
-}
-
-// Update tab info based on curTabId
-async function updateTabInfoByCurTabId(curTabId, updates) {
-    try {
-        await db.navigationTable.where('curTabId').equals(curTabId).modify(updates);
-        if (updates.recording === true) {
-            let tabInfoExistsInDb = await tabInfoExistsInHistory(curTabId);
-            if (!tabInfoExistsInDb) {
-                await db.navigationHistoryTable.add(updates);
-            } else {
-                await db.navigationHistoryTable.where('curTabId').equals(curTabId).modify(updates);
-            }
-        }
-        console.log(`Tab info with curTabId ${curTabId} updated successfully.`);
-    } catch (error) {
-        console.error(`Failed to update tab info with curTabId ${curTabId}:`, error);
-    }
-}
+import navigationDB from './navigationdb';
+const db = navigationDB.db;
+let root;
 
 async function getCurrentTabInfo() {
     try {
@@ -396,18 +368,13 @@ const DraggableRecordingBar = ({ isRecording, toggleRecording }) => {
 
 async function toggleRecording() {
     const latestTabInfo = await readLocalStorage('latestTab');
-    const tabInfo = await readLocalStorage(latestTabInfo.curId.toString());
-
-    if (tabInfo && tabInfo.recording) {
-        await chrome.runtime.sendMessage({ action: "stopRecording", tabId: latestTabInfo.curId });
-    } else {
-        await chrome.runtime.sendMessage({ action: "startRecording", tabId: latestTabInfo.curId });
-    }
+    let tabInfo = await readLocalStorage(latestTabInfo.curId.toString());
 
     // Update the local storage with the new state
     tabInfo.recording = !tabInfo.recording;
     await writeLocalStorage(latestTabInfo.curId.toString(), tabInfo);
-    await updateTabInfoByCurTabId(latestTabInfo.curId, tabInfo);
+    
+    await chrome.runtime.sendMessage({ action: 'toggleRecording', update: tabInfo, curId: latestTabInfo.curId });
 
     // Update UI
     updateUI(tabInfo.recording);
@@ -415,10 +382,14 @@ async function toggleRecording() {
 
 async function updateUI(isRecording) {
     const mountNode = document.getElementById('draggable-recording') || document.createElement('div');
-    if (!mountNode.id) mountNode.id = 'draggable-recording';
-    document.body.appendChild(mountNode);
+    if (!mountNode.id) {
+        mountNode.id = 'draggable-recording';
+        document.body.appendChild(mountNode);
+    }
 
-    const root = createRoot(mountNode);
+    if(!root){
+        root = createRoot(mountNode);
+    }
     root.render(<DraggableRecordingBar isRecording={isRecording} toggleRecording={toggleRecording} />);
 }
 

@@ -8,8 +8,7 @@ let socket = undefined;
 let captureLocalhost = false;
 console.log('This is background service worker');
 
-import { NavigationDatabase } from "./navigationdb";
-const navigationDatabase = new NavigationDatabase();
+import navigationDB from "./navigationdb";
 
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // create the offscreen document if it doesn't already exist
@@ -50,6 +49,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 				sendResponse({tab: {}});
 			}
         }
+		if (msg.action === "toggleRecording") {
+			if(!msg.curId){
+				let currentTab = getActiveTab();
+				curId = currentTab.id;
+				navigationDB.updateTabInfoByCurTabId(curId, msg.update);
+			} else {
+				navigationDB.updateTabInfoByCurTabId(msg.curId, msg.update);
+			}
+		}
 	} catch (error) {
 		console.log(error);
 	}
@@ -86,7 +94,7 @@ chrome.runtime.onStartup.addListener(async function () {
 				img: ""
 			};
 			await writeLocalStorage(String(tab.id), info);
-			await navigationDatabase.addTabInfo('navigationTable', info);
+			await navigationDB.addTabInfo('navigationTable', info);
 		}
 
 		await defineWebSocket(portNum);
@@ -155,7 +163,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 				img: ""
 			};
 			await writeLocalStorage(String(tab.id), info);
-			await navigationDatabase.addTabInfo('navigationTable', info);
+			await navigationDB.addTabInfo('navigationTable', info);
 		}
 
 	} catch (error) {
@@ -240,7 +248,7 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 			} 
 
 			await writeLocalStorage(String(latestTab.curId), info);
-			await navigationDatabase.addTabInfo('navigationTable', info);
+			await navigationDB.addTabInfo('navigationTable', info);
 			if (info.recording === true) {
 				await callDesktopCapture(filename);
 			}
@@ -335,8 +343,8 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 			img: filename
 		};
 		await writeLocalStorage(String(updatedLatestTab.curId), info);
-		await navigationDatabase.addTabInfo('navigationTable', info);
-		await navigationDatabase.addTabInfo('navigationHistoryTable', info);
+		await navigationDB.addTabInfo('navigationTable', info);
+		await navigationDB.addTabInfo('navigationHistoryTable', info);
 		await callDesktopCapture(filename);
 	} else {
 		let info = {
@@ -351,7 +359,7 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 			img: ""
 		};
 		await writeLocalStorage(String(updatedLatestTab.curId), info);
-		await navigationDatabase.addTabInfo('navigationTable', info);
+		await navigationDB.addTabInfo('navigationTable', info);
 	}
   
 	if (closedTabId !== -1) {
@@ -383,10 +391,10 @@ chrome.tabs.onCreated.addListener(async function (tab) {
 			};
 			await writeLocalStorage(String(tab.id), info);
 			if(curWindowInfo.recording === true) {
-				await navigationDatabase.addTabInfo('navigationTable', info);
-				await navigationDatabase.addTabInfo('navigationHistoryTable', info);
+				await navigationDB.addTabInfo('navigationTable', info);
+				await navigationDB.addTabInfo('navigationHistoryTable', info);
 			} else {
-				await navigationDatabase.addTabInfo('navigationTable', info);
+				await navigationDB.addTabInfo('navigationTable', info);
 			}
 		}
 
@@ -657,10 +665,10 @@ async function processTab(tabInfo, tabId){
 						};
 
 						await writeLocalStorage(String(tabId), info);
-						await navigationDatabase.addTabInfo('navigationTable', info);
+						await navigationDB.addTabInfo('navigationTable', info);
 						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 						if(info.recording === true) {
-							await navigationDatabase.addTabInfo('navigationHistoryTable', info);
+							await navigationDB.addTabInfo('navigationHistoryTable', info);
 							await callDesktopCapture(filename);
 						}
 					} else {
@@ -677,7 +685,7 @@ async function processTab(tabInfo, tabId){
 							img: ""
 						};
 						await writeLocalStorage(String(tabId), info);
-						await navigationDatabase.addTabInfo('navigationTable', info);
+						await navigationDB.addTabInfo('navigationTable', info);
 					}
 				}
 			} else {
@@ -709,10 +717,10 @@ async function processTab(tabInfo, tabId){
 							img: filename
 						};
 						await writeLocalStorage(String(tabId), info);
-						await navigationDatabase.addTabInfo('navigationTable', info);
+						await navigationDB.addTabInfo('navigationTable', info);
 						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 						if(info.recording === true) {
-							await navigationDatabase.addTabInfo('navigationHistoryTable', info);
+							await navigationDB.addTabInfo('navigationHistoryTable', info);
 							await callDesktopCapture(filename);
 						}
 					} else {
@@ -729,7 +737,7 @@ async function processTab(tabInfo, tabId){
 							img: ""
 						};
 						await writeLocalStorage(String(tabId), info);
-						await navigationDatabase.addTabInfo('navigationTable', info);
+						await navigationDB.addTabInfo('navigationTable', info);
 					}
 				}
 			}
@@ -761,10 +769,10 @@ async function processTab(tabInfo, tabId){
 				};
 
 				await writeLocalStorage(String(tabId), info);
-				await navigationDatabase.addTabInfo('navigationTable', info);
+				await navigationDB.addTabInfo('navigationTable', info);
 				await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 				if(info.recording === true) {
-					await navigationDatabase.addTabInfo('navigationHistoryTable', info);
+					await navigationDB.addTabInfo('navigationHistoryTable', info);
 					await callDesktopCapture(filename);
 				}
 			} else {
@@ -780,7 +788,7 @@ async function processTab(tabInfo, tabId){
 					img: ""
 				};
 				await writeLocalStorage(String(tabId), info);
-				await navigationDatabase.addTabInfo('navigationTable', info);
+				await navigationDB.addTabInfo('navigationTable', info);
 			}
 		}
 	} else {
@@ -811,8 +819,8 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.time = time;
 			curTabInfo.img = filename;
 			await writeLocalStorage(String(tabId), curTabInfo);
-			await navigationDatabase.addTabInfo('navigationTable', curTabInfo);
-			await navigationDatabase.addTabInfo('navigationHistoryTable', curTabInfo);
+			await navigationDB.addTabInfo('navigationTable', curTabInfo);
+			await navigationDB.addTabInfo('navigationHistoryTable', curTabInfo);
 			await callDesktopCapture(filename);
 		} else {
 			let time = timeStamp();
@@ -829,7 +837,7 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.time = time;
 			curTabInfo.img = "";
 			await writeLocalStorage(String(tabId), curTabInfo);
-			await navigationDatabase.addTabInfo('navigationTable', curTabInfo);
+			await navigationDB.addTabInfo('navigationTable', curTabInfo);
 		}
 	}
 }
@@ -882,12 +890,13 @@ setInterval(async function() {
 
 	// 	let result = JSON.stringify(copyData, undefined, 4);
 	// 	await websocketSendData(result);
-	// 	console.log("Table data:", result);
+	// 	// console.log("Table data:", result);
 	// }
 
-	let allTabInfos = await navigationDatabase.getAllTabInfos('navigationTable');
+	let allTabInfos = await navigationDB.getAllTabInfos('navigationTable');
     console.log("Fetched data:", allTabInfos);
-	let recordingTabInfos = await navigationDatabase.getTabInfosByRecording('navigationHistoryTable', true);
+	let recordingTabInfos = await navigationDB.getAllTabInfos('navigationHistoryTable');
+	console.log("Fetched recording data:", recordingTabInfos);
 
 	if(recordingTabInfos.length === 0) {
 		return;
@@ -902,7 +911,7 @@ setInterval(async function() {
 
 		let result = JSON.stringify(copyData, undefined, 4);
 		// await websocketSendData(result);
-		console.log("Table data:", result);
+		// console.log("Table data:", result);
 	}
 }, 4000);
 
