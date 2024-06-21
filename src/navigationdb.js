@@ -87,9 +87,13 @@ class NavigationDatabase {
             if(updates.recording === true && !existsInHistoryTable){
                 console.log(`Tab info with curTabId ${curTabId} does not exist in navigationHistoryTable yet. Adding it now`);
                 await this.addTabInfo('navigationHistoryTable', updates);
-            } else {
-                await this.db.navigationHistoryTable.where('curTabId').equals(curTabId).modify(updates);
+            } else if(updates.recording){
+                // await this.db.navigationHistoryTable.where('curTabId').equals(curTabId).modify(updates);
+                await this.addTabInfo('navigationHistoryTable', updates);
                 console.log(`Tab info with curTabId ${curTabId} updated successfully in navigationHistoryTable.`);
+            } else { 
+                // essentially the navigation history table should include all navigation that was selected as recording
+                // if any of the navigation later switch to not recording, this should ignore updating the recording attribute to false
             }
         } catch (error) {
             console.error(`Failed to update tab info with curTabId ${curTabId}:`, error);

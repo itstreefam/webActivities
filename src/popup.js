@@ -74,9 +74,15 @@ async function setupRecordAllTabs() {
         const tabInfo = await readLocalStorage(tabIdStr);
         if (tabInfo) {
           tabInfo.recording = toggleAllTabs.checked;
+          if(tabInfo.recording){
+              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording on');
+          } else {
+              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording off');
+          }
+
           await writeLocalStorage(tabIdStr, tabInfo);
           await navigationDB.updateTabInfoByCurTabId(tab.id, tabInfo);
-          await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: toggleAllTabs.checked });
+          await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: tabInfo.recording });
         }
       });
 
@@ -140,12 +146,18 @@ async function setupIndividualTab() {
       urlList.appendChild(div);
 
       toggle.addEventListener("click", async () => {
-        const value = await readLocalStorage(id.toString());
-        if (typeof value !== 'undefined') {
-          value.recording = toggle.checked;
-          await writeLocalStorage(id.toString(), value);
-          await navigationDB.updateTabInfoByCurTabId(id, value);
-          await chrome.tabs.sendMessage(id, { action: "updateRecording", recording: toggle.checked });
+        const tabInfo = await readLocalStorage(id.toString());
+        if (typeof tabInfo !== 'undefined') {
+          tabInfo.recording = toggle.checked;
+          if(tabInfo.recording){
+              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording on');
+          } else {
+              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording off');
+          }
+          
+          await writeLocalStorage(id.toString(), tabInfo);
+          await navigationDB.updateTabInfoByCurTabId(id, tabInfo);
+          await chrome.tabs.sendMessage(id, { action: "updateRecording", recording: tabInfo.recording });
         }
       });
     }
@@ -158,6 +170,16 @@ function timeStamp() {
   let d = new Date();
   let seconds = Math.round(d.getTime() / 1000);
   return seconds;
+}
+
+function replaceTextInParentheses(text, replacement) {
+  // Check if the text contains parentheses
+  if (text.includes('(') && text.includes(')')) {
+      // Use a regular expression to match text within parentheses
+      return text.replace(/\(.*?\)/g, `(${replacement})`);
+  }
+  // Return the original text + (replacement)
+  return `${text} (${replacement})`
 }
 
 async function setupPortNumber() {

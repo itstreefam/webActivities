@@ -371,13 +371,33 @@ async function toggleRecording() {
     let tabInfo = await readLocalStorage(latestTabInfo.curId.toString());
 
     // Update the local storage with the new state
-    tabInfo.recording = !tabInfo.recording;
+    let before = tabInfo.recording;
+    tabInfo.recording = !before;
+    let after = tabInfo.recording;
+
+    if(before == false && after == true){
+        tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording on');
+    } else if(before == true && after == false){
+        tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording off');
+    }
+
+
     await writeLocalStorage(latestTabInfo.curId.toString(), tabInfo);
     
     await chrome.runtime.sendMessage({ action: 'toggleRecording', update: tabInfo, curId: latestTabInfo.curId });
 
     // Update UI
     updateUI(tabInfo.recording);
+}
+
+function replaceTextInParentheses(text, replacement) {
+    // Check if the text contains parentheses
+    if (text.includes('(') && text.includes(')')) {
+        // Use a regular expression to match text within parentheses
+        return text.replace(/\(.*?\)/g, `(${replacement})`);
+    }
+    // Return the original text + (replacement)
+    return `${text} (${replacement})`
 }
 
 async function updateUI(isRecording) {
