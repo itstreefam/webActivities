@@ -250,7 +250,8 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 			await writeLocalStorage(String(latestTab.curId), info);
 			await navigationDB.addTabInfo('navigationTable', info);
 			if (info.recording === true) {
-				await callDesktopCapture(filename);
+				await navigationDB.addTabInfo('navigationHistoryTable', info);
+				// await callDesktopCapture(filename);
 			}
 
 		}
@@ -345,7 +346,7 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 		await writeLocalStorage(String(updatedLatestTab.curId), info);
 		await navigationDB.addTabInfo('navigationTable', info);
 		await navigationDB.addTabInfo('navigationHistoryTable', info);
-		await callDesktopCapture(filename);
+		// await callDesktopCapture(filename);
 	} else {
 		let info = {
 			curUrl: tabInfo.curUrl,
@@ -669,7 +670,7 @@ async function processTab(tabInfo, tabId){
 						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 						if(info.recording === true) {
 							await navigationDB.addTabInfo('navigationHistoryTable', info);
-							await callDesktopCapture(filename);
+							// await callDesktopCapture(filename);
 						}
 					} else {
 						// console.log('case 1.2');
@@ -721,7 +722,7 @@ async function processTab(tabInfo, tabId){
 						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 						if(info.recording === true) {
 							await navigationDB.addTabInfo('navigationHistoryTable', info);
-							await callDesktopCapture(filename);
+							// await callDesktopCapture(filename);
 						}
 					} else {
 						// console.log('case 4.2');
@@ -773,7 +774,7 @@ async function processTab(tabInfo, tabId){
 				await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 				if(info.recording === true) {
 					await navigationDB.addTabInfo('navigationHistoryTable', info);
-					await callDesktopCapture(filename);
+					// await callDesktopCapture(filename);
 				}
 			} else {
 				let info = {
@@ -821,7 +822,11 @@ async function processTab(tabInfo, tabId){
 			await writeLocalStorage(String(tabId), curTabInfo);
 			await navigationDB.addTabInfo('navigationTable', curTabInfo);
 			await navigationDB.addTabInfo('navigationHistoryTable', curTabInfo);
-			await callDesktopCapture(filename);
+			// await callDesktopCapture(filename);
+			// only capture localhost
+			if(curTabInfo.curUrl.includes("localhost") || containsIPAddresses(curTabInfo.curUrl)){
+				await callDesktopCapture(filename);
+			}
 		} else {
 			let time = timeStamp();
 			let transition = await readLocalStorage('transitionsList');
@@ -893,8 +898,8 @@ setInterval(async function() {
 	// 	// console.log("Table data:", result);
 	// }
 
-	let allTabInfos = await navigationDB.getAllTabInfos('navigationTable');
-    console.log("Fetched data:", allTabInfos);
+	// let allTabInfos = await navigationDB.getAllTabInfos('navigationTable');
+    // console.log("Fetched data:", allTabInfos);
 	let recordingTabInfos = await navigationDB.getAllTabInfos('navigationHistoryTable');
 	console.log("Fetched recording data:", recordingTabInfos);
 
@@ -910,8 +915,8 @@ setInterval(async function() {
 		});
 
 		let result = JSON.stringify(copyData, undefined, 4);
-		// await websocketSendData(result);
-		// console.log("Table data:", result);
+		await websocketSendData(result);
+		console.log("Table data:", result);
 	}
 }, 4000);
 
