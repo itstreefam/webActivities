@@ -13,7 +13,7 @@ portfinder.setHighestPort(65535); // default: 65535
 
 portfinder.getPortPromise()
     .then((port) => {
-        const user_dir = String.raw`C:\Users\thien\Desktop\test-draggable`;
+        const user_dir = String.raw`C:\Users\thien\Desktop\test_game\test_game`;
 
         // Start the first interval
 	    intervalId = setTimeout(checkAppSwitch, 500);
@@ -72,7 +72,7 @@ portfinder.getPortPromise()
 
 const checkAppSwitch = async () => {
     try {
-    const activeApp = await activeWin();
+    const activeApp = await activeWin({accessibilityPermission: true, screenRecordingPermission: true});
     // console.log(activeApp);
 
     if (activeApp && activeApp.owner && activeApp.owner.name) {

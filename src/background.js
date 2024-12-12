@@ -8,6 +8,8 @@ let socket = undefined;
 let captureLocalhost = false;
 console.log('This is background service worker');
 
+let defaultRecording = false;
+
 import navigationDB from "./navigationdb";
 
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
@@ -73,8 +75,8 @@ chrome.runtime.onStartup.addListener(async function () {
 			await writeLocalStorage('transitionsList', []);
 			await writeLocalStorage('port', String(portNum));
 			await writeLocalStorage(`curWindowId ${String(windows[0].id)}`, {
-				"tabsList": [],
-				"recording": false
+				tabsList: [],
+				recording: defaultRecording
 			});
 		}
 		await createOffscreen();
@@ -88,7 +90,7 @@ chrome.runtime.onStartup.addListener(async function () {
 				prevUrl: "",
 				prevTabId: tab.id,
 				curTitle: tab.title,
-				recording: false,
+				recording: defaultRecording,
 				action: "add opened tab that is not in storage",
 				time: timeStamp(),
 				img: ""
@@ -127,15 +129,15 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 			// 	chrome.tabs.create({ url: newTab });
 			// }
 			await writeLocalStorage(`curWindowId ${String(activeTab.windowId)}`, {
-				"tabsList": [],
-				"recording": false
+				tabsList: [],
+				recording: defaultRecording
 			});
 		}
 		else {
 			let lastFocusedWindow = await getLastFocusedWindow();
 			await writeLocalStorage(`curWindowId ${String(lastFocusedWindow.id)}`, {
-				"tabsList": [],
-				"recording": false
+				tabsList: [],
+				recording: defaultRecording
 			});
 		}
 		await createOffscreen();
@@ -157,7 +159,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 				prevUrl: "",
 				prevTabId: tab.id,
 				curTitle: tab.title,
-				recording: false,
+				recording: defaultRecording,
 				action: "add opened tab that is not in storage",
 				time: timeStamp(),
 				img: ""
@@ -265,8 +267,8 @@ chrome.windows.onCreated.addListener(async function (window) {
 		let result = await readLocalStorage(`curWindowId ${String(window.id)}`);
 		if (typeof result === 'undefined') {
 			await writeLocalStorage(`curWindowId ${String(window.id)}`, {
-				"tabsList": [],
-				"recording": false
+				tabsList: [],
+				recording: defaultRecording
 			});
 		}
 	} catch (error) {
@@ -918,7 +920,7 @@ setInterval(async function() {
 		await websocketSendData(result);
 		console.log("Table data:", result);
 	}
-}, 4000);
+}, 1000);
 
 
 async function defineWebSocket(portNum){
