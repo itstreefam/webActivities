@@ -15,6 +15,7 @@ module.exports = {
         livereloaddetect: './src/livereloaddetect.js',
         browseractive: './src/browseractive.js',
         checktitle: './src/checktitle.js',
+        draggablerecording: './src/draggablerecording.js',
         // Add other entry points as needed
     },
     output: {
@@ -29,7 +30,7 @@ module.exports = {
                 use: {
                     loader: 'babel-loader',
                     options: {
-                        presets: ['@babel/preset-env']
+                        presets: ['@babel/preset-env', '@babel/preset-react']
                     }
                 }
             },
@@ -60,5 +61,8 @@ module.exports = {
             filename: 'offscreen.html',
             chunks: ['offscreen']
         }),
-    ]
+    ],
+    resolve: {
+        extensions: ['.js', '.jsx'],
+    },
 };

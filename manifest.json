@@ -18,7 +18,8 @@
         "nativeMessaging",
         "unlimitedStorage",
         "alarms",
-        "offscreen"
+        "offscreen",
+        "contextMenus"
     ],
 	"host_permissions": [
 	  "*://*/*",
@@ -38,17 +39,48 @@
         {
             "matches": ["<all_urls>"],
             "js": ["./dist/devtoolsdetect.bundle.js"],
-            "run_at": "document_start"
+            "run_at": "document_end"
         },
         {
             "matches": ["<all_urls>"],
             "js": ["./dist/checktitle.bundle.js"],
-            "run_at": "document_start"
+            "run_at": "document_end"
+        },
+        {
+            "matches": ["<all_urls>"],
+            "js": ["./dist/draggablerecording.bundle.js"],
+            "run_at": "document_end"
+        },
+        {
+            "matches": ["<all_urls>"],
+            "js": ["./dist/browseractive.bundle.js"],
+            "run_at": "document_end"
+        },
+        {
+            "matches": ["<all_urls>"],
+            "js": ["./dist/offscreen.bundle.js"],
+            "run_at": "document_end"
         }
     ],
     "web_accessible_resources": [
         {
             "resources": ["./dist/devtoolsdetect.bundle.js"],
+            "matches": ["<all_urls>"]
+        },
+        {
+            "resources": ["./dist/checktitle.bundle.js"],
+            "matches": ["<all_urls>"]
+        },
+        {
+            "resources": ["./dist/draggablerecording.bundle.js"],
+            "matches": ["<all_urls>"]
+        },
+        {
+            "resources": ["./dist/browseractive.bundle.js"],
+            "matches": ["<all_urls>"]
+        },
+        {
+            "resources": ["./dist/offscreen.bundle.js"],
             "matches": ["<all_urls>"]
         }
     ]

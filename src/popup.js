@@ -1,182 +1,226 @@
-window.onload = function () {
+import navigationDB from './navigationdb';
+const db = navigationDB.db;
 
-  function timeStamp() {
-    let d = new Date();
-    let seconds = Math.round(d.getTime() / 1000);
-    return seconds;
-  }
+// Check if a tab info record exists
+async function tabInfoExists(curTabId) {
+  const count = await db.navigationTable.where('curTabId').equals(curTabId).count();
+  return count > 0;
+}
 
-  function setStorageKey(key, value) {
-    chrome.storage.local.set({ [key]: value });
-  }
-
-  function getStorageKeyValue(id, onGetStorageKeyValue) {
-    chrome.storage.local.get(null, function (result) {
-      for (var key in result) {
-        if (id.toString() == key) {
-          return onGetStorageKeyValue(result[key]);
-        }
+// Sets a key and stores its value into the storage
+async function writeLocalStorage(key, value) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set({ [key]: value }, function () {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError.message);
+      } else {
+        resolve();
       }
-      onGetStorageKeyValue(undefined);
     });
-  }
+  });
+}
 
-  /* record all tabs in current window */
-  var recordAllTabs = document.getElementById("recordAllTabs");
-  var toggleAllTabs = document.createElement("input");
+// Gets a key value from the storage
+async function readLocalStorage(key) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get([key], function (result) {
+      if (result[key] === undefined) {
+        console.log("Key not found in chrome storage");
+        resolve(undefined);
+      } else {
+        resolve(result[key]);
+      }
+    });
+  });
+}
+
+async function setupRecordAllTabs() {
+  const recordAllTabs = document.getElementById("recordAllTabs");
+  const toggleAllTabs = document.createElement("input");
   toggleAllTabs.type = "checkbox";
   toggleAllTabs.className = "toggle";
 
-  var divAllTabs = document.createElement("div");
+  const divAllTabs = document.createElement("div");
   divAllTabs.className = "url";
 
-  var textNodeAllTabs = document.createTextNode("Record all tabs in current window");
+  const textNodeAllTabs = document.createTextNode("Record all tabs in current window");
   divAllTabs.appendChild(textNodeAllTabs);
   divAllTabs.appendChild(toggleAllTabs);
   recordAllTabs.appendChild(divAllTabs);
 
-  chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] }, function (currentWindow) {
-    getStorageKeyValue("curWindowId " + currentWindow.id.toString(), function (curWindowInfo) {
-      if(typeof curWindowInfo !== 'undefined'){
-        toggleAllTabs.id = "switchAllTabs " + currentWindow.id;
-        toggleAllTabs.checked = curWindowInfo.recording;
-      } else {
-        toggleAllTabs.id = "switchAllTabs " + currentWindow.id;
-        toggleAllTabs.checked = false;
+  try {
+    let currentWindow = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
+    let curWindowId = `curWindowId ${currentWindow.id}`;
+    let curWindowInfo = await readLocalStorage(curWindowId);
+
+    toggleAllTabs.id = `switchAllTabs ${currentWindow.id}`;
+    toggleAllTabs.checked = curWindowInfo?.recording ?? false;
+
+    toggleAllTabs.addEventListener("click", async () => {
+      const urlList = document.getElementById("urlList");
+      const toggles = urlList.querySelectorAll(".toggle");
+      for (let toggle of toggles) {
+        toggle.checked = toggleAllTabs.checked; // Update UI immediately
       }
+      const tabsList = currentWindow.tabs.map(tab => tab.id);
 
-      // add event listener to toggleAllTabs
-      toggleAllTabs.addEventListener("click", function () {
+      // Update current window recording status
+      curWindowInfo.recording = toggleAllTabs.checked;
+      await writeLocalStorage(curWindowId, { tabsList: tabsList, recording: curWindowInfo.recording });
 
-        // updating UI for all tabs in current window
-        var urlList = document.getElementById("urlList");
-        var urlListChildren = urlList.children;
-        for (var i = 0; i < urlListChildren.length; i++) {
-          var urlListChild = urlListChildren[i];
-          var urlListChildChildren = urlListChild.children;
-          for (var j = 0; j < urlListChildChildren.length; j++) {
-            var urlListChildChild = urlListChildChildren[j];
-            if (urlListChildChild.className == "toggle") {
-              urlListChildChild.checked = toggleAllTabs.checked;
-            }
+      // Process updates for each tab
+      const updates = currentWindow.tabs.map(async (tab) => {
+        const tabIdStr = tab.id.toString();
+        const tabInfo = await readLocalStorage(tabIdStr);
+        if (tabInfo) {
+          tabInfo.recording = toggleAllTabs.checked;
+          if(tabInfo.recording){
+              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording on');
+          } else {
+              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording off');
           }
-        }
 
-        // set recording for all tabs in current window
-        let tabsList = [];
-        for (let i = 0; i < currentWindow.tabs.length; i++) {
-          tabsList.push(currentWindow.tabs[i].id);
-          getStorageKeyValue(currentWindow.tabs[i].id.toString(), function (tabInfo) {
-            if (typeof tabInfo !== 'undefined') {
-              tabInfo.recording = toggleAllTabs.checked;
-              setStorageKey(currentWindow.tabs[i].id.toString(), tabInfo);
-            }
-          });
+          await writeLocalStorage(tabIdStr, tabInfo);
+          await navigationDB.updateTabInfoByCurTabId(tab.id, tabInfo);
+          await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: tabInfo.recording });
         }
-        setStorageKey("curWindowId " + currentWindow.id.toString(), {
-          recording: toggleAllTabs.checked,
-          tabsList: tabsList
-        });
       });
 
+      // Wait for all updates to complete
+      await Promise.all(updates);
     });
-  });
+  } catch (error) {
+    console.error("Failed to setup recording for all tabs:", error);
+  }
+}
 
-  /* record any individual tab in current window */
-  // loop through currently tabs and get their title
-  chrome.tabs.query({ currentWindow: true }, function (tabs) {
-    let urlList = document.getElementById("urlList");
-    for (let i = 0; i < tabs.length; i++) {
-      let tab = tabs[i];
-      let url = tab.url;
-      let title = tab.title;
-      let id = tab.id;
-
-      let toggle = document.createElement("input");
+/* record any individual tab in current window */
+// loop through currently tabs and get their title
+async function setupIndividualTab() {
+  const urlList = document.getElementById("urlList");
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    for (const tab of tabs) {
+      const url = tab.url;
+      const title = tab.title;
+      const id = tab.id;
+      const toggle = document.createElement("input");
       toggle.type = "checkbox";
-      toggle.id = "switch " + id.toString();
+      toggle.id = `switch ${id}`;
       toggle.className = "toggle";
-      // toggle.checked = true;
 
       // add a div to hold the toggle switch and the title
-      let div = document.createElement("div");
+      const div = document.createElement("div");
       div.className = "url";
 
-      getStorageKeyValue(id, function (value) {
-          if (typeof value === 'undefined') {
-            getStorageKeyValue("curWindowId " + tab.windowId.toString(), function (curWindowInfo) {
-              if (typeof curWindowInfo !== 'undefined') {
-                toggle.checked = curWindowInfo.recording;
-              } else {
-                toggle.checked = false;
-              }
-              setStorageKey(id.toString(), {
-                "curUrl": url,
-                "curTabId": id,
-                "prevUrl": "",
-                "prevTabId": id,
-                "curTitle": title,
-                "recording": toggle.checked,
-                "action": "add opened tab that is not in storage",
-                "time": timeStamp()
-              });
-          });
-          }
-          else {
-            toggle.checked = value.recording;
-          }
+      let tabInfoExistsInDb = await tabInfoExists(id);
+      if (!tabInfoExistsInDb) {
+        const curWindowInfo = await readLocalStorage(`curWindowId ${tab.windowId}`);
+        toggle.checked = curWindowInfo?.recording ?? false;
+        const tabInfo = {
+          curUrl: url,
+          curTabId: id,
+          prevUrl: "",
+          prevTabId: id,
+          curTitle: title,
+          recording: toggle.checked,
+          action: "add opened tab that is not in storage",
+          time: timeStamp(),
+          img: ""
+        };
+        await writeLocalStorage(id.toString(), tabInfo);
+        await navigationDB.addTabInfo("navigationTable", tabInfo);
+      } else {
+        const existingTabInfo = await readLocalStorage(id.toString());
+        toggle.checked = existingTabInfo.recording;
+      }
 
-          // add the title to the div
-          let textNode = document.createTextNode(title);
-          div.appendChild(textNode);
+      // add the title to the div
+      const textNode = document.createTextNode(title);
+      div.appendChild(textNode);
 
-          // add the toggle switch to the div
-          div.appendChild(toggle);
-      });
+      // add the toggle switch to the div
+      div.appendChild(toggle);
 
-      // add the div to the ul
+      // add the div to the urlList
       urlList.appendChild(div);
 
-      toggle.addEventListener("click", function () {
-        getStorageKeyValue(id, function (value) {
-          if (typeof value !== 'undefined') {
-            value.recording = toggle.checked;
-            setStorageKey(id.toString(), value);
+      toggle.addEventListener("click", async () => {
+        const tabInfo = await readLocalStorage(id.toString());
+        if (typeof tabInfo !== 'undefined') {
+          tabInfo.recording = toggle.checked;
+          if(tabInfo.recording){
+              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording on');
+          } else {
+              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording off');
           }
-        });
+          
+          await writeLocalStorage(id.toString(), tabInfo);
+          await navigationDB.updateTabInfoByCurTabId(id, tabInfo);
+          await chrome.tabs.sendMessage(id, { action: "updateRecording", recording: tabInfo.recording });
+        }
       });
     }
-  });
-  
-  /* port number */
-  let portInfo = document.getElementById("portInfo");
-  // make a form to hold the port number
-  let form = document.createElement("form");
+  } catch (error) {
+    console.error("Failed to set up individual tabs:", error);
+  }
+}
+
+function timeStamp() {
+  let d = new Date();
+  let seconds = Math.round(d.getTime() / 1000);
+  return seconds;
+}
+
+function replaceTextInParentheses(text, replacement) {
+  // Check if the text contains parentheses
+  if (text.includes('(') && text.includes(')')) {
+      // Use a regular expression to match text within parentheses
+      return text.replace(/\(.*?\)/g, `(${replacement})`);
+  }
+  // Return the original text + (replacement)
+  return `${text} (${replacement})`
+}
+
+async function setupPortNumber() {
+  const portInfo = document.getElementById("portInfo");
+  const form = document.createElement("form");
   portInfo.appendChild(form);
-  let label = document.createElement("label");
-  label.innerHTML = "Port number: ";
+  
+  const label = document.createElement("label");
+  label.textContent = "Port number:";
   form.appendChild(label);
-  let input = document.createElement("input");
+
+  const input = document.createElement("input");
   input.type = "text";
   input.id = "portNumber";
-  input.value = "";
   form.appendChild(input);
 
-  getStorageKeyValue("port", function (value) {
-    input.value = value;
-    input.style.width = (input.value.length * 10) + "px";
-  });
-
-  let submit = document.createElement("input");
+  const submit = document.createElement("input");
   submit.type = "submit";
   submit.value = "Update";
   form.appendChild(submit);
 
-  form.addEventListener("submit", function (e) {
-    // e.preventDefault();
-    console.log("port: " + input.value);
-    setStorageKey("port", input.value);
-    input.style.width = (input.value.length * 10) + "px";
-  });
+  try {
+    const portValue = await readLocalStorage("port");
+    input.value = portValue || ""; // Fallback to an empty string if port is not set
+    input.style.width = `${input.value.length * 10}px`;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault(); // Prevent form from submitting the traditional way
+      console.log("port: " + input.value);
+      await writeLocalStorage("port", input.value);
+      input.style.width = `${input.value.length * 10}px`;
+    });
+  } catch (error) {
+    console.error("Failed to retrieve port number from storage:", error);
+  }
+}
+
+
+window.onload = async function () {
+  await setupRecordAllTabs();
+  await setupIndividualTab();
+  await setupPortNumber();
 };
 

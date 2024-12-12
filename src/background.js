@@ -8,23 +8,61 @@ let socket = undefined;
 let captureLocalhost = false;
 console.log('This is background service worker');
 
+let defaultRecording = false;
+
+import navigationDB from "./navigationdb";
+
 // https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
 // create the offscreen document if it doesn't already exist
 async function createOffscreen() {
 	if (await chrome.offscreen.hasDocument?.()) return;
 	await chrome.offscreen.createDocument({
-		url: 'offscreen.html',
+		url: './dist/offscreen.html',
 		reasons: ['BLOBS'],
 		justification: 'keep service worker running',
 	});
 }
 
 // a message from an offscreen document every 20 second resets the inactivity timer
-chrome.runtime.onMessage.addListener(msg => {
-	if (msg.keepAlive) console.log('keepAlive');
-	if (msg.devtools) console.log('is devtools open? ', msg.devtools);
-	if (!msg.devtools) console.log('is devtools open? ', false);
-	if (msg.type) console.log(msg.type);
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+	try{
+		if (msg.keepAlive) {
+			console.log('Service worker is alive');
+			sendResponse({alive: true});
+		}
+		if (msg.devtools) {
+			console.log('DevTools is open:', msg.devtools);
+			sendResponse({devtools: msg.devtools});
+		}
+		if (msg.type) {
+			if (msg.type === "pageHidden") {
+				console.log('page is now hidden');
+				sendResponse({type: "pageHidden"});
+			} else {
+				console.log('page is now visible');
+				sendResponse({type: "pageVisible"});
+			}
+		}
+		if (msg.action === "getCurrentTab") {
+			let currentTab = getActiveTab();
+			if (currentTab) {
+				sendResponse({tab: currentTab});
+			} else {
+				sendResponse({tab: {}});
+			}
+        }
+		if (msg.action === "toggleRecording") {
+			if(!msg.curId){
+				let currentTab = getActiveTab();
+				curId = currentTab.id;
+				navigationDB.updateTabInfoByCurTabId(curId, msg.update);
+			} else {
+				navigationDB.updateTabInfoByCurTabId(msg.curId, msg.update);
+			}
+		}
+	} catch (error) {
+		console.log(error);
+	}
 });
 
 // only reset the storage when one chrome window first starts up
@@ -35,14 +73,33 @@ chrome.runtime.onStartup.addListener(async function () {
 			await writeLocalStorage('latestTab', {});
 			await writeLocalStorage('closedTabId', -1);
 			await writeLocalStorage('transitionsList', []);
-			await writeLocalStorage('port', portNum.toString());
-			await writeLocalStorage('curWindowId ' + windows[0].id.toString(), {
-				"tabsList": [],
-				"recording": false
+			await writeLocalStorage('port', String(portNum));
+			await writeLocalStorage(`curWindowId ${String(windows[0].id)}`, {
+				tabsList: [],
+				recording: defaultRecording
 			});
 		}
-		createOffscreen();
-		defineWebSocket(portNum);
+		await createOffscreen();
+
+		let tabs = await getAllTabs();
+		for (let i = 0; i < tabs.length; i++) {
+			let tab = tabs[i];
+			let info = {
+				curUrl: tab.url,
+				curTabId: tab.id,
+				prevUrl: "",
+				prevTabId: tab.id,
+				curTitle: tab.title,
+				recording: defaultRecording,
+				action: "add opened tab that is not in storage",
+				time: timeStamp(),
+				img: ""
+			};
+			await writeLocalStorage(String(tab.id), info);
+			await navigationDB.addTabInfo('navigationTable', info);
+		}
+
+		await defineWebSocket(portNum);
 	} catch (error) {
 		console.err(error);
 	}
@@ -64,31 +121,73 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 		await writeLocalStorage('latestTab', {});
 		await writeLocalStorage('closedTabId', -1);
 		await writeLocalStorage('transitionsList', []);
-		await writeLocalStorage('port', portNum.toString());
+		await writeLocalStorage('port', String(portNum));
 
 		if (details.reason === 'install') {
-			let tabs = await getTabs();
-			if (tabs.length === 1 && tabs[0].url === extensionTab) {
-				chrome.tabs.create({ url: newTab });
-			}
-			await writeLocalStorage('curWindowId ' + tabs[0].windowId.toString(), {
-				"tabsList": [],
-				"recording": false
+			let activeTab = await getActiveTab();
+			// if (activeTab.length === 1 && activeTab.url === extensionTab) {
+			// 	chrome.tabs.create({ url: newTab });
+			// }
+			await writeLocalStorage(`curWindowId ${String(activeTab.windowId)}`, {
+				tabsList: [],
+				recording: defaultRecording
 			});
 		}
 		else {
 			let lastFocusedWindow = await getLastFocusedWindow();
-			await writeLocalStorage('curWindowId ' + lastFocusedWindow.id.toString(), {
-				"tabsList": [],
-				"recording": false
+			await writeLocalStorage(`curWindowId ${String(lastFocusedWindow.id)}`, {
+				tabsList: [],
+				recording: defaultRecording
 			});
-		};
-		createOffscreen();
-		defineWebSocket(portNum);
+		}
+		await createOffscreen();
+		await defineWebSocket(portNum);
+		
+		chrome.contextMenus.create({
+			title: 'Trigger draggable',
+			contexts: ["all"],
+			id: "myContextMenuId",
+		})
+
+		let tabs = await getAllTabs();
+		// write all the tabs to local storage
+		for (let i = 0; i < tabs.length; i++) {
+			let tab = tabs[i];
+			let info = {
+				curUrl: tab.url,
+				curTabId: tab.id,
+				prevUrl: "",
+				prevTabId: tab.id,
+				curTitle: tab.title,
+				recording: defaultRecording,
+				action: "add opened tab that is not in storage",
+				time: timeStamp(),
+				img: ""
+			};
+			await writeLocalStorage(String(tab.id), info);
+			await navigationDB.addTabInfo('navigationTable', info);
+		}
+
 	} catch (error) {
 		console.error(error);
 	}
 });
+
+chrome.contextMenus.onClicked.addListener((info, tab) =>
+    testDraggable(tab.id).then(response => console.log(response))
+);
+
+function testDraggable(tabId) {
+	return new Promise((resolve, reject) => {
+		chrome.tabs.sendMessage(tabId, {message: "testDraggable"}, function (response) {
+			if (chrome.runtime.lastError) {
+				reject(chrome.runtime.lastError.message);
+			} else {
+				resolve(response);
+			}
+		});
+	});
+}
 
 async function getLastFocusedWindow() {
 	return new Promise((resolve, reject) => {
@@ -100,65 +199,63 @@ async function getLastFocusedWindow() {
 
 // check windows focus since tabs.onActivated does not get triggered when navigating between different chrome windows
 chrome.windows.onFocusChanged.addListener(async function (windowId) {
-	try {	
+	try {
 		if (windowId !== -1) {
-			let tabs = await getTabs();
 			let latestTab = await readLocalStorage("latestTab");
+			let activeTab = await getActiveTab();
 			latestTab.prevId = latestTab.curId;
 			latestTab.prevWinId = latestTab.curWinId;
-			latestTab.curId = tabs[0].id;
-			latestTab.curWinId = tabs[0].windowId;
+			latestTab.curId = activeTab.id;
+			latestTab.curWinId = activeTab.windowId;
 			await writeLocalStorage("latestTab", latestTab);
 	
+			// activeTab is the most current one
+			// while latestTab is the previous one
+			// console.log("latestTab: ", latestTab);
+			// console.log("activeTab: ", activeTab);
+		
 			let tabInfo = await readLocalStorage(String(latestTab.curId));
-			if (typeof tabInfo === "undefined") {
-				return;
-			}
-
 			let prevTabInfo = await readLocalStorage(String(latestTab.prevId));
-			if (typeof prevTabInfo === "undefined") {
+			if (typeof tabInfo === 'undefined' || typeof prevTabInfo === 'undefined') {
+				return;
+		  	}
+
+			if (tabInfo.curTabId === prevTabInfo.curTabId) {
 				return;
 			}
 
-			if (latestTab.curWinId !== latestTab.prevWinId) {
-				if (tabInfo.curUrl !== prevTabInfo.curUrl) {
-					let curWindowInfo = await readLocalStorage('curWindowId ' + latestTab.curWinId.toString());
-					let prevWindowInfo = await readLocalStorage('curWindowId ' + latestTab.prevWinId.toString());
+			console.log("tabInfo: ", tabInfo);
+			console.log("prevTabInfo: ", prevTabInfo);
 
-					// only record transitions between two windows if both windows are recording
-					if (curWindowInfo.recording && prevWindowInfo.recording) {
-						let time = timeStamp();
-						let filename = `screencapture-n${String(latestTab.curId)}_${time}.png`;
+			let time = timeStamp();
+			let filename = `screencapture-n${String(latestTab.curId)}_${time}.png`;
 
-						if(tabInfo.recording) {
-							await writeLocalStorage(String(latestTab.curId), {
-								curUrl: tabInfo.curUrl,
-								curTabId: tabInfo.curTabId,
-								prevUrl: prevTabInfo.curUrl,
-								prevTabId: prevTabInfo.curTabId,
-								curTitle: tabs[0].title,
-								recording: tabInfo.recording,
-								action: "revisit",
-								time: timeStamp(),
-								img: filename
-							});
-							await callDesktopCapture(filename);
-						} else {
-							await writeLocalStorage(String(latestTab.curId), {
-								curUrl: tabInfo.curUrl,
-								curTabId: tabInfo.curTabId,
-								prevUrl: prevTabInfo.curUrl,
-								prevTabId: prevTabInfo.curTabId,
-								curTitle: tabs[0].title,
-								recording: tabInfo.recording,
-								action: "revisit",
-								time: timeStamp(),
-								img: ""
-							});
-						}
-					}
-				}
+			let info = {
+				action: "revisit",
+				curUrl: tabInfo.curUrl,
+				curTabId: tabInfo.curTabId,
+				prevUrl: prevTabInfo.curUrl,
+				prevTabId: prevTabInfo.curTabId,
+				curTitle: tabInfo.curTitle,
+				recording: tabInfo.recording,
+				time: time,
+				img: filename
+			};
+
+			if (!tabInfo.recording && !prevTabInfo.recording) {
+				return;
+			} else if(tabInfo.recording && !prevTabInfo.recording) {
+				info.recording = tabInfo.recording;
+				info.prevUrl = "";
+			} 
+
+			await writeLocalStorage(String(latestTab.curId), info);
+			await navigationDB.addTabInfo('navigationTable', info);
+			if (info.recording === true) {
+				await navigationDB.addTabInfo('navigationHistoryTable', info);
+				// await callDesktopCapture(filename);
 			}
+
 		}
 	} catch (error) {
 		console.error(error);
@@ -167,11 +264,11 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 
 chrome.windows.onCreated.addListener(async function (window) {
 	try {
-		let result = await readLocalStorage('curWindowId ' + window.id.toString());
+		let result = await readLocalStorage(`curWindowId ${String(window.id)}`);
 		if (typeof result === 'undefined') {
-			await writeLocalStorage('curWindowId ' + window.id.toString(), {
-				"tabsList": [],
-				"recording": false
+			await writeLocalStorage(`curWindowId ${String(window.id)}`, {
+				tabsList: [],
+				recording: defaultRecording
 			});
 		}
 	} catch (error) {
@@ -181,17 +278,18 @@ chrome.windows.onCreated.addListener(async function (window) {
 
 // when a tab is opened, set appropriate info for latestTab
 // tabs.onActivated handles tabs activities in the same chrome window
+// in linux, this gets triggered when hyperlink is opened in new window
 chrome.tabs.onActivated.addListener(async function (activeInfo) {
 	console.log("onActivated: ", activeInfo);
 
-	let tabs = await getTabs();
+	let activeTab = await getActiveTab();
 	let latestTab = await readLocalStorage('latestTab');
   
 	// If the latestTab does not exist, set it for the first time
 	if (!latestTab) {
 		await writeLocalStorage('latestTab', {
-			curId: tabs[0].id,
-			curWinId: tabs[0].windowId,
+			curId: activeTab.id,
+			curWinId: activeTab.windowId,
 			prevId: -1,
 			prevWinId: -1,
 		});
@@ -203,8 +301,8 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 		...latestTab,
 		prevId: latestTab.curId,
 		prevWinId: latestTab.curWinId,
-		curId: tabs[0].id,
-		curWinId: tabs[0].windowId,
+		curId: activeTab.id,
+		curWinId: activeTab.windowId,
 	};
 	await writeLocalStorage('latestTab', updatedLatestTab);
   
@@ -236,30 +334,35 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 
 	if(tabInfo.recording){
 		// Set the updated tab info
-		await writeLocalStorage(String(updatedLatestTab.curId), {
+		let info = {
 			curUrl: tabInfo.curUrl,
 			curTabId: tabInfo.curTabId,
 			prevUrl: prevTabInfo.curUrl,
 			prevTabId: prevTabInfo.curTabId,
-			curTitle: tabs[0].title,
+			curTitle: activeTab.title,
 			recording: tabInfo.recording,
 			action: action,
 			time: time,
 			img: filename
-		});
-		await callDesktopCapture(filename);
+		};
+		await writeLocalStorage(String(updatedLatestTab.curId), info);
+		await navigationDB.addTabInfo('navigationTable', info);
+		await navigationDB.addTabInfo('navigationHistoryTable', info);
+		// await callDesktopCapture(filename);
 	} else {
-		await writeLocalStorage(String(updatedLatestTab.curId), {
+		let info = {
 			curUrl: tabInfo.curUrl,
 			curTabId: tabInfo.curTabId,
 			prevUrl: prevTabInfo.curUrl,
 			prevTabId: prevTabInfo.curTabId,
-			curTitle: tabs[0].title,
+			curTitle: activeTab.title,
 			recording: tabInfo.recording,
 			action: action,
 			time: time,
 			img: ""
-		});
+		};
+		await writeLocalStorage(String(updatedLatestTab.curId), info);
+		await navigationDB.addTabInfo('navigationTable', info);
 	}
   
 	if (closedTabId !== -1) {
@@ -270,7 +373,7 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 chrome.tabs.onCreated.addListener(async function (tab) {
 	// this event gets triggered more often in edge than chrome
 	try {
-		let curWindow = "curWindowId " + tab.windowId.toString();
+		let curWindow = `curWindowId ${String(tab.windowId)}`;
 		let curWindowInfo = await readLocalStorage(curWindow);
 		if (typeof curWindowInfo === 'undefined') {
 			return;
@@ -278,8 +381,7 @@ chrome.tabs.onCreated.addListener(async function (tab) {
 
 		// if tab is newtab, write to local storage
 		if (tab.url === newTab) {
-			// const imgUrl = await callDesktopCapture(String(tab.id));
-			await writeLocalStorage(String(tab.id), {
+			let info = {
 				curUrl: tab.url,
 				curTabId: tab.id,
 				prevUrl: "",
@@ -289,7 +391,14 @@ chrome.tabs.onCreated.addListener(async function (tab) {
 				action: "empty new tab",
 				time: timeStamp(),
 				img: ""
-			});
+			};
+			await writeLocalStorage(String(tab.id), info);
+			if(curWindowInfo.recording === true) {
+				await navigationDB.addTabInfo('navigationTable', info);
+				await navigationDB.addTabInfo('navigationHistoryTable', info);
+			} else {
+				await navigationDB.addTabInfo('navigationTable', info);
+			}
 		}
 
 		// check if the tab is in curWindowInfo.tabsList
@@ -305,10 +414,26 @@ chrome.tabs.onCreated.addListener(async function (tab) {
 	}
 });
   
-async function getTabs() {
-	return new Promise(resolve => {
-		chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-			resolve(tabs);
+async function getActiveTab() {
+	return new Promise((resolve, reject) => {
+		chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+			if (tabs.length === 0) {
+				reject('No active tab found');
+			} else {
+				resolve(tabs[0]);
+			}
+		});
+	});
+}
+
+async function getAllTabs() {
+	return new Promise((resolve, reject) => {
+		chrome.tabs.query({}, function (tabs) {
+			if (tabs.length === 0) {
+				reject('No tabs found');
+			} else {
+				resolve(tabs);
+			}
 		});
 	});
 }
@@ -317,7 +442,7 @@ async function getTabs() {
 chrome.tabs.onRemoved.addListener(async function (tabId, removeInfo) {
 	await writeLocalStorage('closedTabId', tabId);
 
-	let curWindow = "curWindowId " + removeInfo.windowId.toString();
+	let curWindow = `curWindowId ${String(removeInfo.windowId)}`;
 	let curWindowInfo = await readLocalStorage(curWindow);
 	if (typeof curWindowInfo === 'undefined') {
 		return;
@@ -336,35 +461,38 @@ chrome.tabs.onRemoved.addListener(async function (tabId, removeInfo) {
 
 chrome.storage.onChanged.addListener(function (changes) {
 	Object.entries(changes).forEach(([key, { oldValue, newValue }]) => {
-		console.log(key, oldValue, newValue);
-		
-		if (key.includes("curWindowId")) {
+		if (shouldIgnoreChange(key) || objCompare(oldValue, newValue)) {
 			return;
 		}
 
-		if (objCompare(oldValue, newValue)) {
-			return;
-		}
+		console.log(key, oldValue, newValue);
 
 		try {
-			if (newValue.recording !== undefined) {
-				if (newValue.recording) {
-					handleTableData([newValue]);
-				}
-			}
+			if (newValue?.recording) {
+                handleTableData([newValue]);
+            }
 		} catch (error) {
 			console.log(error);
 		}
 	});
 });
-  
+
+function shouldIgnoreChange(key) {
+	return ["curWindowId", "latestTab", "closedTabId", "transitionsList", "port", "tableData", "draggablePosition"].some((k) => key.includes(k));
+}
+
+let lastUpdatePromise = Promise.resolve();
+
 async function handleTableData(newData) {
-	let tableData = await readLocalStorage('tableData');
-	if (tableData.length === 0) {
-		await writeLocalStorage('tableData', newData);
-		return;
-	}
-	await writeLocalStorage('tableData', tableData.concat(newData));
+    lastUpdatePromise = lastUpdatePromise.then(async () => {
+        const tableData = await readLocalStorage('tableData') || [];
+        const updatedTableData = tableData.concat(newData);
+        await writeLocalStorage('tableData', updatedTableData);
+    }).catch(error => {
+        console.error('Error processing update for tableData:', error);
+    });
+
+    return lastUpdatePromise;
 }
 
 function objCompare(obj1, obj2) {
@@ -489,13 +617,13 @@ async function getHistoryVisits(url) {
 async function processTab(tabInfo, tabId){
 	// console.log("processTab: ", tabInfo);
 
-	let curWindow = "curWindowId " + tabInfo.windowId.toString();
+	let curWindow = `curWindowId ${String(tabInfo.windowId)}`;
 	let curWindowInfo = await readLocalStorage(curWindow);
 	if(typeof curWindowInfo === 'undefined') {
 		return;
 	}
 
-	let curTabInfo = await readLocalStorage(tabId.toString());
+	let curTabInfo = await readLocalStorage(String(tabId));
 	if(typeof curTabInfo === 'undefined') {
 		let latestTabInfo = await readLocalStorage('latestTab');
 		if(typeof latestTabInfo === 'undefined') {
@@ -511,273 +639,163 @@ async function processTab(tabInfo, tabId){
 			// hyperlink opened in new tab and new tab is active tab
 			// or empty new tab is active tab (for omnibox search)
 			if(newTabInfo.openerTabId) {
-				let v = await readLocalStorage(newTabInfo.openerTabId.toString());
+				let v = await readLocalStorage(String(newTabInfo.openerTabId));
 				if(typeof v !== 'undefined') {
 					// console.log('case 1');
 					// if there is hyperlink redirecting, then prevUrl and prevTabId exist
 					// if simply opening a new tab, then prevUrl and prevTabId don't exist
 					let time = timeStamp();
-					let filename = `screencapture-n${tabId.toString()}_${time}.png`;
+					let filename = `screencapture-n${String(tabId)}_${time}.png`;
 
 					if(newTabInfo.url !== newTab) {
 						await writeLocalStorage('transitionsList', []);
 					}
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
-						if(curWindowInfo.recording) {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-								"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-								"curTitle": newTabInfo.title,
-								"recording": curWindowInfo.recording,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": filename
-							});
-							await callDesktopCapture(filename);
-						} else {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-								"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-								"curTitle": newTabInfo.title,
-								"recording": false,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": ""
-							});
+						// console.log('case 1.1');
+						let prevTabInfo = await readLocalStorage(String(newTabInfo.openerTabId));
+						
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+							prevTabId: ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+							curTitle: newTabInfo.title,
+							recording: ((prevTabInfo.recording) ? prevTabInfo.recording : curWindowInfo.recording),
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							time: time,
+							img: filename
+						};
+
+						await writeLocalStorage(String(tabId), info);
+						await navigationDB.addTabInfo('navigationTable', info);
+						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
+						if(info.recording === true) {
+							await navigationDB.addTabInfo('navigationHistoryTable', info);
+							// await callDesktopCapture(filename);
 						}
 					} else {
-						await writeLocalStorage(tabId.toString(), {
-							"curUrl": newTabInfo.url,
-							"curTabId": tabId,
-							"prevUrl": ((newTabInfo.url !== newTab) ? v.curUrl : ""),
-							"prevTabId": ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
-							"curTitle": newTabInfo.title,
-							"recording": false,
-							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-							"time": time,
-							"img": ""
-						});
-					}
-				} else {
-					// console.log('case 2');
-					// this case happens when reloading the extension
-					let time = timeStamp();
-					let filename = `screencapture-n${String(tabId.toString())}_${time}.png`;
-
-					if(newTabInfo.url !== newTab) {
-						await writeLocalStorage('transitionsList', []);
-					}
-
-					if(typeof curWindowInfo.recording !== 'undefined') {
-						if(curWindowInfo.recording) {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": "",
-								"prevTabId": tabId,
-								"curTitle": newTabInfo.title,
-								"recording": curWindowInfo.recording,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": filename
-							});
-							await callDesktopCapture(filename);
-						} else {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": "",
-								"prevTabId": tabId,
-								"curTitle": newTabInfo.title,
-								"recording": false,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": ""
-							});
-						}
-					} else {
-						await writeLocalStorage(tabId.toString(), {
-							"curUrl": newTabInfo.url,
-							"curTabId": tabId,
-							"prevUrl": "",
-							"prevTabId": tabId,
-							"curTitle": newTabInfo.title,
-							"recording": false,
-							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-							"time": time,
-							"img": ""
-						});
+						// console.log('case 1.2');
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: ((newTabInfo.url !== newTab) ? v.curUrl : ""),
+							prevTabId: ((newTabInfo.url !== newTab) ? newTabInfo.openerTabId : tabId),
+							curTitle: newTabInfo.title,
+							recording: false,
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
+							time: time,
+							img: ""
+						};
+						await writeLocalStorage(String(tabId), info);
+						await navigationDB.addTabInfo('navigationTable', info);
 					}
 				}
 			} else {
-				if(typeof latestTabInfo.prevId === 'undefined') {
-					// console.log('case 3');
-					// this case happens when extension first installs (query a new tab)
-					let time = timeStamp();
-					let filename = `screencapture-n${String(tabId.toString())}_${time}.png`;
-
-					if(newTabInfo.url !== newTab) {
-						await writeLocalStorage('transitionsList', []);
-					}
-
-					if(typeof curWindowInfo.recording !== 'undefined') {
-						if(curWindowInfo.recording) {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": "",
-								"prevTabId": tabId,
-								"curTitle": newTabInfo.title,
-								"recording": curWindowInfo.recording,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": filename
-							});
-							await callDesktopCapture(filename);
-						} else {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": "",
-								"prevTabId": tabId,
-								"curTitle": newTabInfo.title,
-								"recording": false,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-								"time": time,
-								"img": ""
-							});
-						}
-					} else {
-						await writeLocalStorage(tabId.toString(), {
-							"curUrl": newTabInfo.url,
-							"curTabId": tabId,
-							"prevUrl": "",
-							"prevTabId": tabId,
-							"curTitle": newTabInfo.title,
-							"recording": false,
-							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new tab and new tab is active tab" : "empty new tab is active tab"),
-							"time": time,
-							"img": ""
-						});
-					}
-				} else {
+				if(typeof latestTabInfo.prevId !== 'undefined') {
 					// console.log('case 4');
 					// this case happens when hyperlink opened in new window
-					let x = await readLocalStorage(latestTabInfo.prevId.toString());
+					let x = await readLocalStorage(String(latestTabInfo.prevId));
 					if(typeof x === 'undefined') {
 						return;
 					}
 					let time = timeStamp();
-					let filename = `screencapture-n${tabId.toString()}_${time}.png`;
+					let filename = `screencapture-n${String(tabId)}_${time}.png`;
 
 					if(newTabInfo.url !== newTab) {
 						await writeLocalStorage('transitionsList', []);
 					}
 
 					if(typeof curWindowInfo.recording !== 'undefined') {
-						if(curWindowInfo.recording) {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": x.curUrl,
-								"prevTabId": latestTabInfo.prevId,
-								"curTitle": newTabInfo.title,
-								"recording": curWindowInfo.recording,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-								"time": time,
-								"img": filename
-							});
-							await callDesktopCapture(filename);
-						} else {
-							await writeLocalStorage(tabId.toString(), {
-								"curUrl": newTabInfo.url,
-								"curTabId": tabId,
-								"prevUrl": x.curUrl,
-								"prevTabId": latestTabInfo.prevId,
-								"curTitle": newTabInfo.title,
-								"recording": false,
-								"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-								"time": time,
-								"img": ""
-							});
+						// console.log('case 4.1');
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: x.curUrl,
+							prevTabId: latestTabInfo.prevId,
+							curTitle: newTabInfo.title,
+							recording: ((x.recording) ? x.recording : curWindowInfo.recording),
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+							time: time,
+							img: filename
+						};
+						await writeLocalStorage(String(tabId), info);
+						await navigationDB.addTabInfo('navigationTable', info);
+						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
+						if(info.recording === true) {
+							await navigationDB.addTabInfo('navigationHistoryTable', info);
+							// await callDesktopCapture(filename);
 						}
 					} else {
-						await writeLocalStorage(tabId.toString(), {
-							"curUrl": newTabInfo.url,
-							"curTabId": tabId,
-							"prevUrl": x.curUrl,
-							"prevTabId": latestTabInfo.prevId,
-							"curTitle": newTabInfo.title,
-							"recording": false,
-							"action": ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
-							"time": time,
-							"img": ""
-						});
+						// console.log('case 4.2');
+						let info = {
+							curUrl: newTabInfo.url,
+							curTabId: tabId,
+							prevUrl: x.curUrl,
+							prevTabId: latestTabInfo.prevId,
+							curTitle: newTabInfo.title,
+							recording: false,
+							action: ((newTabInfo.url !== newTab) ? "hyperlink opened in new window" : "empty tab in new window is active tab"),
+							time: time,
+							img: ""
+						};
+						await writeLocalStorage(String(tabId), info);
+						await navigationDB.addTabInfo('navigationTable', info);
 					}
 				}
 			}
 		} else {
 			// console.log('case 5');
 			// hyperlink opened in new tab but new tab is not active tab
-			let y = await readLocalStorage(latestTabInfo.curId.toString());
+			let y = await readLocalStorage(String(latestTabInfo.curId));
 			if(typeof y === 'undefined') {
 				return;
 			}
 			let time = timeStamp();
-			let filename = `screencapture-n${tabId.toString()}_${time}.png`;
+			let filename = `screencapture-n${String(tabId)}_${time}.png`;
 
 			if(tabInfo.url !== newTab) {
 				await writeLocalStorage('transitionsList', []);
 			}
 
 			if(typeof curWindowInfo.recording !== 'undefined') {
-				if(curWindowInfo.recording) {
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": tabInfo.url,
-						"curTabId": tabId,
-						"prevUrl": y.curUrl,
-						"prevTabId": latestTabInfo.curId,
-						"curTitle": tabInfo.title,
-						"recording": curWindowInfo.recording,
-						"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-						"time": time,
-						"img": filename
-					});
-					await callDesktopCapture(filename);
-				} else {
-					await writeLocalStorage(tabId.toString(), {
-						"curUrl": tabInfo.url,
-						"curTabId": tabId,
-						"prevUrl": y.curUrl,
-						"prevTabId": latestTabInfo.curId,
-						"curTitle": tabInfo.title,
-						"recording": false,
-						"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-						"time": time,
-						"img": ""
-					});
-				} 
+				let info = {
+					curUrl: tabInfo.url,
+					curTabId: tabId,
+					prevUrl: y.curUrl,
+					prevTabId: latestTabInfo.curId,
+					curTitle: tabInfo.title,
+					recording: ((y.recording) ? y.recording : curWindowInfo.recording),
+					action: ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+					time: time,
+					img: filename
+				};
+
+				await writeLocalStorage(String(tabId), info);
+				await navigationDB.addTabInfo('navigationTable', info);
+				await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
+				if(info.recording === true) {
+					await navigationDB.addTabInfo('navigationHistoryTable', info);
+					// await callDesktopCapture(filename);
+				}
 			} else {
-				await writeLocalStorage(tabId.toString(), {
-					"curUrl": tabInfo.url,
-					"curTabId": tabId,
-					"prevUrl": y.curUrl,
-					"prevTabId": latestTabInfo.curId,
-					"curTitle": tabInfo.title,
-					"recording": false,
-					"action": ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
-					"time": time,
-					"img": ""
-				});
+				let info = {
+					curUrl: tabInfo.url,
+					curTabId: tabId,
+					prevUrl: y.curUrl,
+					prevTabId: latestTabInfo.curId,
+					curTitle: tabInfo.title,
+					recording: false,
+					action: ((tabInfo.url !== newTab) ? "hyperlink opened in new tab but new tab is not active tab" : "empty new tab is not active tab"),
+					time: time,
+					img: ""
+				};
+				await writeLocalStorage(String(tabId), info);
+				await navigationDB.addTabInfo('navigationTable', info);
 			}
 		}
 	} else {
-		console.log('case 6');
+		// console.log('case 6');
 		// it looks like in some cases where navigation is subtle, title is not up-to-date with the curUrl
 		// so we need to update the title
 		const title = await getUpdatedTitle(tabId);
@@ -790,11 +808,11 @@ async function processTab(tabInfo, tabId){
 		// navigate between urls in a same tab
 		if(curTabInfo.recording) {
 			let time = timeStamp();
-			let filename = `screencapture-n${tabId.toString()}_${time}.png`;
+			let filename = `screencapture-n${String(tabId)}_${time}.png`;
 			let transition = await readLocalStorage('transitionsList');
 			curTabInfo.action = "navigate between urls in the same tab";
 			if(transition.length > 0) {
-				curTabInfo.action = "navigate between urls in the same tab (" + transition[0] + ")";
+				curTabInfo.action = `navigate between urls in the same tab (${transition[0]})`;
 			}
 			await writeLocalStorage('transitionsList', []);
 			curTabInfo.prevUrl = curTabInfo.curUrl;
@@ -803,14 +821,20 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.curTitle = curTitle;
 			curTabInfo.time = time;
 			curTabInfo.img = filename;
-			await writeLocalStorage(tabId.toString(), curTabInfo);
-			await callDesktopCapture(filename);
+			await writeLocalStorage(String(tabId), curTabInfo);
+			await navigationDB.addTabInfo('navigationTable', curTabInfo);
+			await navigationDB.addTabInfo('navigationHistoryTable', curTabInfo);
+			// await callDesktopCapture(filename);
+			// only capture localhost
+			if(curTabInfo.curUrl.includes("localhost") || containsIPAddresses(curTabInfo.curUrl)){
+				await callDesktopCapture(filename);
+			}
 		} else {
 			let time = timeStamp();
 			let transition = await readLocalStorage('transitionsList');
 			curTabInfo.action = "navigate between urls in the same tab";
 			if(transition.length > 0) {
-				curTabInfo.action = "navigate between urls in the same tab (" + transition[0] + ")";
+				curTabInfo.action = `navigate between urls in the same tab (${transition[0]})`;
 			}
 			await writeLocalStorage('transitionsList', []);
 			curTabInfo.prevUrl = curTabInfo.curUrl;
@@ -819,7 +843,8 @@ async function processTab(tabInfo, tabId){
 			curTabInfo.curTitle = curTitle;
 			curTabInfo.time = time;
 			curTabInfo.img = "";
-			await writeLocalStorage(tabId.toString(), curTabInfo);
+			await writeLocalStorage(String(tabId), curTabInfo);
+			await navigationDB.addTabInfo('navigationTable', curTabInfo);
 		}
 	}
 }
@@ -854,14 +879,36 @@ async function websocketSendData(data) {
 }
 
 setInterval(async function() {
-	let tableData = await readLocalStorage('tableData');
-	if (typeof tableData === 'undefined') {
-		return;
-	}
+	// let tableData = await readLocalStorage('tableData');
+	// if (typeof tableData === 'undefined') {
+	// 	console.log("Table data is undefined");
+	// 	return;
+	// }
 
-	if (tableData.length > 0) {
-		console.log("exporting data to user's working project folder");
-		let copyData = tableData;
+	// if (tableData.length > 0) {
+	// 	console.log("exporting data to user's working project folder");
+	// 	let copyData = tableData;
+
+	// 	// remove the 'recording' keys from the newData
+	// 	copyData = copyData.map(el => {
+	// 		if (el.recording === true) delete el.recording
+	// 		return el;
+	// 	});
+
+	// 	let result = JSON.stringify(copyData, undefined, 4);
+	// 	await websocketSendData(result);
+	// 	// console.log("Table data:", result);
+	// }
+
+	// let allTabInfos = await navigationDB.getAllTabInfos('navigationTable');
+    // console.log("Fetched data:", allTabInfos);
+	let recordingTabInfos = await navigationDB.getAllTabInfos('navigationHistoryTable');
+	console.log("Fetched recording data:", recordingTabInfos);
+
+	if(recordingTabInfos.length === 0) {
+		return;
+	} else {
+		let copyData = recordingTabInfos;
 
 		// remove the 'recording' keys from the newData
 		copyData = copyData.map(el => {
@@ -871,14 +918,15 @@ setInterval(async function() {
 
 		let result = JSON.stringify(copyData, undefined, 4);
 		await websocketSendData(result);
-		// console.log(result);
+		console.log("Table data:", result);
 	}
-}, 2000);
+}, 1000);
 
 
 async function defineWebSocket(portNum){
 	try {
-		socket = new WebSocket('ws://localhost:' + portNum.toString() + '/');
+		let host = `ws://localhost:${portNum}/`;
+		socket = new WebSocket(host);
 		socket.addEventListener('open', (event) => {
 			console.log('WebSocket connection opened:', event);
 		});
