@@ -9,6 +9,11 @@ var intervalId;
 var previousAppName = '';
 let chromeExtensionSocket = null;
 
+let serverSettings = {
+    projectPath: String.raw``, // Default fallback
+    enableCapture: true
+};
+
 portfinder.setBasePort(4000);    // default: 8000
 portfinder.setHighestPort(65535); // default: 65535
 
@@ -84,8 +89,6 @@ const functionCaptureScreenshot = async (filepath) => {
 
 portfinder.getPortPromise()
     .then((port) => {
-		const user_dir = String.raw`C:\Users\Tin Pham\Desktop\pathfinding-algo`;
-
         // Start the first interval
 	    intervalId = setTimeout(checkAppSwitch, 500);
 
@@ -101,23 +104,79 @@ portfinder.getPortPromise()
                 }
                 const parsedMessage = JSON.parse(message);
 
-                if (parsedMessage.action === 'Capture screen') {
-                    // make a new directory for screenshots if not exist
-                    const screencaptures_dir = path.join(user_dir, 'screencaptures');
-                    if (!fs.existsSync(screencaptures_dir)) {
-                        fs.mkdirSync(screencaptures_dir);
+                if (parsedMessage.action === 'updateSettings') {
+                    const settings = parsedMessage.settings;
+                    
+                    if (settings.projectPath) {
+                        serverSettings.projectPath = settings.projectPath;
+                        console.log('Project path updated to:', settings.projectPath);
                     }
-
-                    const filepath = path.join(screencaptures_dir, parsedMessage.filename);
-                    await functionCaptureScreenshot(filepath);
-
-                    chromeExtensionSocket.send(JSON.stringify({
-                        status: 'success'
+                    
+                    if (typeof settings.enableCapture !== 'undefined') {
+                        serverSettings.enableCapture = settings.enableCapture;
+                        console.log('Screenshot capture', settings.enableCapture ? 'enabled' : 'disabled');
+                    }
+                    
+                    chromeExtensionSocket.send(JSON.stringify({ 
+                        status: 'settings_updated',
+                        settings: serverSettings 
                     }));
-                    return;  // to ensure the following logic doesn't run in this case
+                    return;
                 }
 
+                if (parsedMessage.action === 'captureScreen') {
+                    // Check if capture is enabled
+                    if (!serverSettings.enableCapture) {
+                        console.log('Screenshot capture is disabled');
+                        chromeExtensionSocket.send(JSON.stringify({
+                            status: 'disabled',
+                            message: 'Screenshot capture is disabled'
+                        }));
+                        return;
+                    }
+
+                    try {
+                        // Use the dynamic project path instead of hardcoded user_dir
+                        const user_dir = serverSettings.projectPath;
+                        
+                        if (!user_dir) {
+                            throw new Error('No project path configured');
+                        }
+
+                        // Make screenshots directory
+                        const screencaptures_dir = path.join(user_dir, 'screencaptures');
+                        if (!fs.existsSync(screencaptures_dir)) {
+                            fs.mkdirSync(screencaptures_dir, { recursive: true });
+                        }
+
+                        const filepath = path.join(screencaptures_dir, parsedMessage.filename);
+                        await functionCaptureScreenshot(filepath);
+
+                        chromeExtensionSocket.send(JSON.stringify({
+                            status: 'success'
+                        }));
+                        
+                    } catch (error) {
+                        console.error('Screenshot capture failed:', error);
+                        chromeExtensionSocket.send(JSON.stringify({
+                            status: 'error',
+                            message: error.message
+                        }));
+                    }
+                    return;
+                }
+
+                // Handle web data logging
                 let urlResult = parsedMessage;
+                
+                // Use the dynamic project path
+                const user_dir = serverSettings.projectPath;
+                
+                if (!user_dir) {
+                    console.error('No project path configured for web data');
+                    return;
+                }
+                
                 let file = path.join(user_dir, 'webData');
                 let data = JSON.stringify(urlResult, undefined, 4);
 

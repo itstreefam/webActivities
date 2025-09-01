@@ -60,6 +60,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 				navigationDB.updateTabInfoByCurTabId(msg.curId, msg.update);
 			}
 		}
+
+		if (msg.action === 'updateSettings') {
+			const settings = msg.settings;
+			
+			// Store the settings locally
+			if (settings.enableCapture !== undefined) {
+				writeLocalStorage('enableCapture', settings.enableCapture);
+			}
+			if (settings.projectPath) {
+				writeLocalStorage('projectPath', settings.projectPath);
+			}
+			
+			// Send settings to Node.js server
+			if (socket && socket.readyState === WebSocket.OPEN) {
+				socket.send(JSON.stringify({
+					action: 'updateSettings',
+					settings: settings
+				}));
+			}
+			
+			sendResponse({ success: true });
+		}
+
 	} catch (error) {
 		console.log(error);
 	}
@@ -974,9 +997,22 @@ chrome.windows.onRemoved.addListener(async function (windowId) {
 });
 
 async function callDesktopCapture(filename){
+	// Check if capture is enabled
+    const enableCapture = await readLocalStorage('enableCapture');
+    
+    if (enableCapture === false) {
+        console.log('Desktop capture is disabled - skipping screenshot');
+        return Promise.resolve();
+    }
+
 	return new Promise((resolve, reject) => {
+		if (!socket || socket.readyState !== WebSocket.OPEN) {
+            reject(new Error('WebSocket not connected'));
+            return;
+        }
+
 		socket.send(JSON.stringify({
-			action: 'Capture screen',
+			action: 'captureScreen',
 			filename: filename
 		}));
 
