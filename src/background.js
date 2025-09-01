@@ -8,7 +8,7 @@ let socket = undefined;
 let captureLocalhost = false;
 console.log('This is background service worker');
 
-let defaultRecording = false;
+let defaultRecording = true;
 
 import navigationDB from "./navigationdb";
 
@@ -60,6 +60,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 				navigationDB.updateTabInfoByCurTabId(msg.curId, msg.update);
 			}
 		}
+
+		if (msg.action === 'updateSettings') {
+			const settings = msg.settings;
+			
+			// Store the settings locally
+			if (settings.enableCapture !== undefined) {
+				writeLocalStorage('enableCapture', settings.enableCapture);
+			}
+			if (settings.projectPath) {
+				writeLocalStorage('projectPath', settings.projectPath);
+			}
+			
+			// Send settings to Node.js server
+			if (socket && socket.readyState === WebSocket.OPEN) {
+				socket.send(JSON.stringify({
+					action: 'updateSettings',
+					settings: settings
+				}));
+			}
+			
+			sendResponse({ success: true });
+		}
+
 	} catch (error) {
 		console.log(error);
 	}
@@ -253,7 +276,7 @@ chrome.windows.onFocusChanged.addListener(async function (windowId) {
 			await navigationDB.addTabInfo('navigationTable', info);
 			if (info.recording === true) {
 				await navigationDB.addTabInfo('navigationHistoryTable', info);
-				// await callDesktopCapture(filename);
+				await callDesktopCapture(filename);
 			}
 
 		}
@@ -348,7 +371,7 @@ chrome.tabs.onActivated.addListener(async function (activeInfo) {
 		await writeLocalStorage(String(updatedLatestTab.curId), info);
 		await navigationDB.addTabInfo('navigationTable', info);
 		await navigationDB.addTabInfo('navigationHistoryTable', info);
-		// await callDesktopCapture(filename);
+		await callDesktopCapture(filename);
 	} else {
 		let info = {
 			curUrl: tabInfo.curUrl,
@@ -598,7 +621,12 @@ chrome.tabs.onUpdated.addListener(async function (tabId, changeInfo, tab) {
 	}
 
 	if (changeInfo.status === 'complete') {
-		processTab(tab, tabId);
+		// processTab(tab, tabId);
+
+		// Wait additional time for all resources to load
+        setTimeout(async () => {
+            await processTab(tab, tabId);
+        }, 500);
 	}
 });
 
@@ -672,7 +700,7 @@ async function processTab(tabInfo, tabId){
 						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 						if(info.recording === true) {
 							await navigationDB.addTabInfo('navigationHistoryTable', info);
-							// await callDesktopCapture(filename);
+							await callDesktopCapture(filename);
 						}
 					} else {
 						// console.log('case 1.2');
@@ -724,7 +752,7 @@ async function processTab(tabInfo, tabId){
 						await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 						if(info.recording === true) {
 							await navigationDB.addTabInfo('navigationHistoryTable', info);
-							// await callDesktopCapture(filename);
+							await callDesktopCapture(filename);
 						}
 					} else {
 						// console.log('case 4.2');
@@ -776,7 +804,7 @@ async function processTab(tabInfo, tabId){
 				await chrome.tabs.sendMessage(tabId, { action: "updateRecording", recording: info.recording });
 				if(info.recording === true) {
 					await navigationDB.addTabInfo('navigationHistoryTable', info);
-					// await callDesktopCapture(filename);
+					await callDesktopCapture(filename);
 				}
 			} else {
 				let info = {
@@ -824,11 +852,7 @@ async function processTab(tabInfo, tabId){
 			await writeLocalStorage(String(tabId), curTabInfo);
 			await navigationDB.addTabInfo('navigationTable', curTabInfo);
 			await navigationDB.addTabInfo('navigationHistoryTable', curTabInfo);
-			// await callDesktopCapture(filename);
-			// only capture localhost
-			if(curTabInfo.curUrl.includes("localhost") || containsIPAddresses(curTabInfo.curUrl)){
-				await callDesktopCapture(filename);
-			}
+			await callDesktopCapture(filename);
 		} else {
 			let time = timeStamp();
 			let transition = await readLocalStorage('transitionsList');
@@ -973,9 +997,22 @@ chrome.windows.onRemoved.addListener(async function (windowId) {
 });
 
 async function callDesktopCapture(filename){
+	// Check if capture is enabled
+    const enableCapture = await readLocalStorage('enableCapture');
+    
+    if (enableCapture === false) {
+        console.log('Desktop capture is disabled - skipping screenshot');
+        return Promise.resolve();
+    }
+
 	return new Promise((resolve, reject) => {
+		if (!socket || socket.readyState !== WebSocket.OPEN) {
+            reject(new Error('WebSocket not connected'));
+            return;
+        }
+
 		socket.send(JSON.stringify({
-			action: 'Capture localhost',
+			action: 'captureScreen',
 			filename: filename
 		}));
 

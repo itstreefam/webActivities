@@ -27,9 +27,11 @@
   "dependencies": {
     "devtools-detect": "^4.0.1",
     "dexie": "^3.2.6",
+    "node-screenshots": "^0.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-draggable": "^4.4.6",
-    "rrweb": "^2.0.0-alpha.4"
+    "rrweb": "^2.0.0-alpha.4",
+    "screenshot-desktop": "^1.15.2"
   }
 }
