@@ -8,7 +8,7 @@ let socket = undefined;
 let captureLocalhost = false;
 console.log('This is background service worker');
 
-let defaultRecording = true;
+let defaultRecording = false; // default recording state for tabs
 
 import navigationDB from "./navigationdb";
 
@@ -63,6 +63,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 		if (msg.action === 'updateSettings') {
 			const settings = msg.settings;
+			let shouldReconnect = false;
 			
 			// Store the settings locally
 			if (settings.enableCapture !== undefined) {
@@ -70,6 +71,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 			}
 			if (settings.projectPath) {
 				writeLocalStorage('projectPath', settings.projectPath);
+			}
+
+			if (settings.port) {
+				portNum = settings.port;
+				writeLocalStorage('port', String(portNum));
+				shouldReconnect = true;
 			}
 			
 			// Send settings to Node.js server
@@ -79,7 +86,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 					settings: settings
 				}));
 			}
-			
+
+			// Check if a reconnect is necessary or if the socket is currently closed
+			if (shouldReconnect || !socket || socket.readyState === WebSocket.CLOSED) {
+				if (socket) {
+					socket.close(); // Close existing connection gracefully
+				}
+				defineWebSocket(portNum); // Reconnect with the potentially new port
+			}
+					
 			sendResponse({ success: true });
 		}
 
@@ -892,11 +907,18 @@ async function websocketSendData(data) {
 			return;
 		}
 
-		// check if there is an existing connection
-		if (socket.readyState === WebSocket.CLOSED) {
-			defineWebSocket(port);
-		}
-        socket.send(data);
+		// If socket is not defined OR if it is closed, try to connect
+        if (!socket || socket.readyState === WebSocket.CLOSED) {
+            await defineWebSocket(port); // Attempt to establish connection
+        }
+
+        // Only send if the socket is open
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(data);
+        } else {
+            // Data is dropped if server is not connected.
+            console.warn('WebSocket not open. Data not sent:', data);
+        }
 	} catch (error) {
         console.error('Error sending data via WebSocket:', error);
     }
@@ -951,8 +973,23 @@ async function defineWebSocket(portNum){
 	try {
 		let host = `ws://localhost:${portNum}/`;
 		socket = new WebSocket(host);
+
+		// Fetch current settings from Chrome storage *before* the listener
+		const projectPath = await readLocalStorage('projectPath');
+		const enableCapture = await readLocalStorage('enableCapture');
+
 		socket.addEventListener('open', (event) => {
 			console.log('WebSocket connection opened:', event);
+			
+			// Send all known settings to the newly connected server
+			// only runs when the connection is OPEN.
+			socket.send(JSON.stringify({
+				action: 'updateSettings',
+				settings: { 
+					projectPath: projectPath, // Now guaranteed to be sent on connect
+					enableCapture: enableCapture
+				}
+			}));
 		});
 
 		socket.addEventListener('message', (event) => {

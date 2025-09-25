@@ -137,6 +137,12 @@ body {
 }
 
 /* Toggle Switches */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
 .toggle-switch {
   position: relative;
   width: 44px;

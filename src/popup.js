@@ -60,7 +60,7 @@ async function setupProjectPath() {
   // Load current path
   try {
     const projectPath = await readLocalStorage('projectPath');
-    const displayPath = projectPath || 'Using default from webActivities\\node\\index.js';
+    const displayPath = projectPath || 'Not set';
     currentPath.textContent = `Current: ${displayPath}`;
     pathInput.value = projectPath || '';
   } catch (error) {
@@ -94,12 +94,12 @@ async function setupProjectPath() {
 async function setupScreenshotCapture() {
   const screenshotToggle = document.getElementById('screenshotToggle');
   
-  // Load current setting
+  // Default to false if not set
   try {
     const enableCapture = await readLocalStorage('enableCapture');
-    screenshotToggle.checked = enableCapture !== undefined ? enableCapture : true;
+    screenshotToggle.checked = enableCapture ?? false;
   } catch (error) {
-    screenshotToggle.checked = true;
+    screenshotToggle.checked = false;
   }
   
   // Toggle handler
@@ -170,7 +170,7 @@ async function setupWindowControls() {
 
       // Use the active tab's title if it exists, otherwise fall back to the ID
       const windowDisplayName = activeTab ? activeTab.title : `Window ${window.id}`;
-      windowTitle.textContent = `${windowDisplayName} (${window.tabs.length} tabs)`;
+      windowTitle.textContent = `[${window.tabs.length} Tab(s)] (Active: ${windowDisplayName})`;
 
       // Add the full title as a tooltip in case it's too long to display
       windowTitle.title = windowDisplayName;
