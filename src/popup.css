@@ -229,3 +229,9 @@ body {
 .tabs-list::-webkit-scrollbar-thumb {
   background: #ccc;
 }
+
+.windows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Spacing between window items */
+}

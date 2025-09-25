@@ -49,7 +49,6 @@ async function setupGeneralSettings() {
   await setupProjectPath();
   await setupScreenshotCapture();
   await setupPortConfiguration();
-  await setupRecordAllTabs();
 }
 
 // Project Path Setup
@@ -148,56 +147,91 @@ async function setupPortConfiguration() {
   });
 }
 
-// Record All Tabs Setup
-async function setupRecordAllTabs() {
-  const recordAllToggle = document.getElementById('recordAllToggle');
-  
-  try {
-    let currentWindow = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
-    let curWindowId = `curWindowId ${currentWindow.id}`;
-    let curWindowInfo = await readLocalStorage(curWindowId);
-    
-    recordAllToggle.checked = curWindowInfo?.recording ?? false;
-    
-    recordAllToggle.addEventListener('change', async () => {
-      const tabsList = currentWindow.tabs.map(tab => tab.id);
-      
-      // Update current window recording status
-      curWindowInfo.recording = recordAllToggle.checked;
-      await writeLocalStorage(curWindowId, { 
-        tabsList: tabsList, 
-        recording: curWindowInfo.recording 
-      });
-      
-      // Update all individual tab toggles
-      const individualToggles = document.querySelectorAll('.tabs-list .toggle-switch');
-      individualToggles.forEach(toggle => {
-        toggle.checked = recordAllToggle.checked;
-      });
-      
-      // Process updates for each tab
-      const updates = currentWindow.tabs.map(async (tab) => {
-        const tabIdStr = tab.id.toString();
-        const tabInfo = await readLocalStorage(tabIdStr);
-        if (tabInfo) {
-          tabInfo.recording = recordAllToggle.checked;
-          if(tabInfo.recording){
-              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording on');
-          } else {
-              tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording off');
-          }
+async function setupWindowControls() {
+  const windowsList = document.getElementById('windowsList');
+  const currentWindow = await chrome.windows.getCurrent(); // Get the window the popup is in
 
-          await writeLocalStorage(tabIdStr, tabInfo);
-          await navigationDB.updateTabInfoByCurTabId(tab.id, tabInfo);
-          await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: tabInfo.recording });
-        }
-      });
+  try {
+    // Get all normal Chrome windows and their tabs
+    const windows = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
+
+    for (const window of windows) {
+      const windowItem = document.createElement('div');
+      windowItem.className = 'tab-item'; 
+
+      const windowInfo = document.createElement('div');
+      windowInfo.className = 'tab-info';
       
-      await Promise.all(updates);
-    });
-    
+      const windowTitle = document.createElement('div');
+      windowTitle.className = 'tab-title';
+      
+      // Find the tab that is currently active in the window
+      const activeTab = window.tabs.find(tab => tab.active);
+
+      // Use the active tab's title if it exists, otherwise fall back to the ID
+      const windowDisplayName = activeTab ? activeTab.title : `Window ${window.id}`;
+      windowTitle.textContent = `${windowDisplayName} (${window.tabs.length} tabs)`;
+
+      // Add the full title as a tooltip in case it's too long to display
+      windowTitle.title = windowDisplayName;
+
+      windowInfo.appendChild(windowTitle);
+
+      const toggle = document.createElement('input');
+      toggle.type = 'checkbox';
+      toggle.className = 'toggle-switch';
+      
+      // Load the recording state for this specific window
+      const windowIdStr = `curWindowId ${window.id}`;
+      const windowInfoFromStorage = await readLocalStorage(windowIdStr);
+      toggle.checked = windowInfoFromStorage?.recording ?? false;
+
+      // Add event listener to the new window toggle
+      toggle.addEventListener('change', async () => {
+        const isRecording = toggle.checked;
+        const tabsListIds = window.tabs.map(tab => tab.id);
+
+        // Update this window's recording status in storage
+        await writeLocalStorage(windowIdStr, {
+          tabsList: tabsListIds,
+          recording: isRecording
+        });
+        
+        // If we are toggling the current window, update the individual tab toggles in the UI
+        if (window.id === currentWindow.id) {
+          const individualToggles = document.querySelectorAll('#tabsList .toggle-switch');
+          individualToggles.forEach(t => t.checked = isRecording);
+        }
+
+        // Create an array of promises to update all tabs in this window
+        const updates = window.tabs.map(async (tab) => {
+          const tabIdStr = tab.id.toString();
+          const tabInfo = await readLocalStorage(tabIdStr);
+          if (tabInfo) {
+            tabInfo.recording = isRecording;
+            tabInfo.action = replaceTextInParentheses(
+              tabInfo.action,
+              isRecording ? 'recording on' : 'recording off'
+            );
+            
+            await writeLocalStorage(tabIdStr, tabInfo);
+            await navigationDB.updateTabInfoByCurTabId(tab.id, tabInfo);
+            // Inform the content script in each tab about the change
+            await chrome.tabs.sendMessage(tab.id, { action: "updateRecording", recording: tabInfo.recording });
+          }
+        });
+
+        // Wait for all tab updates to complete
+        await Promise.all(updates);
+      });
+
+      windowItem.appendChild(windowInfo);
+      windowItem.appendChild(toggle);
+      windowsList.appendChild(windowItem);
+    }
+
   } catch (error) {
-    console.error("Failed to setup record all tabs:", error);
+    console.error("Failed to setup window controls:", error);
   }
 }
 
@@ -289,6 +323,7 @@ async function setupIndividualTabs() {
 window.onload = async function () {
   try {
     await setupGeneralSettings();
+    await setupWindowControls();
     await setupIndividualTabs();
   } catch (error) {
     console.error("Failed to initialize popup:", error);
