@@ -17,17 +17,6 @@ let serverSettings = {
 portfinder.setBasePort(4000);    // default: 8000
 portfinder.setHighestPort(65535); // default: 65535
 
-// const functionCaptureScreenshot = async (filepath) => {
-//     try {
-//         await screencapture({ filename: filepath });
-//         console.log('Screenshot saved to:', filepath);
-
-//     } catch (error) {
-//         console.error('Screenshot error:', error);
-//         throw error;
-//     }
-// };
-
 const functionCaptureScreenshot = async (filepath) => {
     try {
         let windows = Window.all();
@@ -61,14 +50,6 @@ const functionCaptureScreenshot = async (filepath) => {
         if (!targetWindow) {
             targetWindow = windows[0];
         }
-        
-        // console.log('Using display:', {
-        //     id: targetWindow.id,
-        //     dimensions: `${targetWindow.width}x${targetWindow.height}`,
-        //     position: `(${targetWindow.x}, ${targetWindow.y})`,
-        //     isPrimary: targetWindow.isPrimary,
-        //     scaleFactor: targetWindow.scaleFactor
-        // });
         
         // try synchronous capture first (often more reliable)
         const image = targetWindow.captureImageSync();

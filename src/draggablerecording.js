@@ -5,23 +5,22 @@ import navigationDB from './navigationdb';
 const db = navigationDB.db;
 let root;
 
+async function writeLocalStorage(key, value) {
+    return new Promise((resolve) => {
+        chrome.storage.local.set({ [key]: value }, resolve);
+    });
+}
+async function readLocalStorage(key) {
+    return new Promise((resolve) => {
+        chrome.storage.local.get([key], (result) => resolve(result[key]));
+    });
+}
 async function getCurrentTabInfo() {
-    try {
-        const response = await chrome.runtime.sendMessage({ action: 'getCurrentTab' });
-        if (typeof response.tab === 'string') {
-            // Only parse if it's a string
-            const tabInfo = JSON.parse(response.tab);
-            console.log('Current tab info:', tabInfo);
-            return tabInfo;
-        } else {
-            // If it's already an object, just return it
-            console.log('Current tab info:', response.tab);
-            return response.tab;
-        }
-    } catch (error) {
-        console.error('Error getting current tab info:', error);
-        return null;
-    }
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getCurrentTab' }, (response) => {
+            resolve(response.tab);
+        });
+    });
 }
 
 // https://stackoverflow.com/questions/20926551/recommended-way-of-making-react-component-div-draggable
@@ -46,10 +45,8 @@ class Draggable extends React.Component {
     }
 
     async componentDidMount() {
-        const tabInfo = await getCurrentTabInfo();
-        const curTabId = tabInfo.id;
-        const savedPosKey = `draggablePosition ${curTabId}`;
-
+        // Use a global key for position to persist across all tabs
+        const savedPosKey = 'draggablePosition';
         const savedPos = await readLocalStorage(savedPosKey);
 
         const initialX = savedPos ? savedPos.x : (window.innerWidth - this.div.offsetWidth) / 2;
@@ -60,25 +57,29 @@ class Draggable extends React.Component {
     }
 
     handleResize = () => {
-        // Adjust the position if it's out of the viewport after a resize
-        const currentX = this.state.pos.x;
+        const { x, y } = this.state.pos;
+        if (!this.div) return;
         const boxWidth = this.div.offsetWidth;
+        const boxHeight = this.div.offsetHeight;
         const maxRight = window.innerWidth - boxWidth;
+        const maxBottom = window.innerHeight - boxHeight;
 
-        if (currentX > maxRight) {
-            this.setState({ pos: { x: maxRight, y: this.state.pos.y } });
+        const newX = x > maxRight ? maxRight : x;
+        const newY = y > maxBottom ? maxBottom : y;
+
+        if (newX !== x || newY !== y) {
+            this.setState({ pos: { x: newX, y: newY } });
         }
     }
 
     onMouseDown = (e) => {
-        // only left mouse button
         if (e.button !== 0) return;
         const pos = this.div.getBoundingClientRect();
-        this.offset = e.clientX - pos.left;
         this.setState({
             dragging: true,
             rel: {
-                x: e.pageX - pos.left
+                x: e.pageX - pos.left,
+                y: e.pageY - pos.top
             }
         });
         e.stopPropagation();
@@ -89,46 +90,42 @@ class Draggable extends React.Component {
         this.setState({ dragging: false });
         e.stopPropagation();
         e.preventDefault();
-
         const position = { x: this.state.pos.x, y: this.state.pos.y };
-
-        const tabInfo = await getCurrentTabInfo();
-        const curTabId = tabInfo.id;
-
-        await writeLocalStorage(`draggablePosition ${curTabId}`, position);
+        // Save to the global key
+        await writeLocalStorage('draggablePosition', position);
     };
 
     onMouseMove = (e) => {
         if (!this.state.dragging) return;
 
-        let newX = e.clientX - this.state.rel.x;
-        let newY = e.clientY - this.state.rel.y;
         const boxWidth = this.div.offsetWidth;
         const maxRight = window.innerWidth - boxWidth;
+        let newX = e.pageX - this.state.rel.x;
+        newX = Math.max(0, newX);
+        newX = Math.min(maxRight, newX);
 
-        // Constrain newX to the viewport
-        newX = Math.max(0, newX); // Prevents moving beyond the left edge
-        newX = Math.min(maxRight, newX); // Prevents moving beyond the right edge
+        const boxHeight = this.div.offsetHeight;
+        const maxBottom = window.innerHeight - boxHeight;
+        let newY = e.pageY - this.state.rel.y;
+        newY = Math.max(0, newY);
+        newY = Math.min(maxBottom, newY);
 
         this.setState({
-            pos: {
-                x: newX,
-                y: newY // try changing Y
-            }
+            pos: { x: newX, y: newY }
         });
         e.stopPropagation();
         e.preventDefault();
     };
 
-    render() {
+   render() {
         return (
             <div
                 onMouseDown={this.onMouseDown}
                 style={{
-                    position: 'absolute',
+                    position: 'fixed',
                     left: this.state.pos.x + 'px',
                     top: this.state.pos.y + 'px',
-                    ...this.props.style // spread the styles from props
+                    ...this.props.style
                 }}
                 ref={div => { this.div = div; }}
             >
@@ -138,7 +135,7 @@ class Draggable extends React.Component {
     }
 }
 
-function hideDraggableRecordingBar() {
+async function hideDraggableRecordingBar() {
     const draggableRecording = document.getElementById('notHidingState');
     if (draggableRecording) {
         draggableRecording.style.display = 'none';
@@ -147,9 +144,10 @@ function hideDraggableRecordingBar() {
     if (dot) {
         dot.style.display = 'flex';
     }
+    await writeLocalStorage('draggableIsHidden', true); // Save hidden state
 }
 
-function unhide() {
+async function unhide() {
     const draggableRecording = document.getElementById('notHidingState');
     if (draggableRecording) {
         draggableRecording.style.display = 'flex';
@@ -158,6 +156,7 @@ function unhide() {
     if (dot) {
         dot.style.display = 'none';
     }
+    await writeLocalStorage('draggableIsHidden', false); // Save visible state
 }
 
 let isHistoryShown = false;
@@ -241,41 +240,29 @@ async function showTabSummary() {
 }
 
 const draggableStyle = {
-    position: 'absolute',
+    position: 'fixed', // Ensure it's fixed relative to the viewport
     zIndex: 2147483647,
     backgroundColor: 'green',
-    outline: 'auto',
-    opacity: '0.9',
-    color: 'black',
-    fontSize: '12px',
-    padding: '10px',
-    borderRadius: '10px',
-    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.1)',
-    //width: '125px !important',
-    //minWidth: '125px !important',
-    //height: '50px !important',
-    //minHeight: '50px !important',
-    display: 'flex',
-    //flexDirection: 'column', // Stack children vertically
-    alignItems: 'center', // Center children horizontally
+    color: 'white',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.2)',
 };
 
 const textStyle = {
-    color: 'white',
-    fontSize: '15px',
-    flexDirection: 'row',
-    // marginBottom: '8px', // Space between text and buttons
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
 };
 
 const buttonsContainerStyle = {
-    display: 'flex', // Align buttons next to each other
+    display: 'flex',
+    gap: '5px',
 };
 
 const tabSummaryStyle = {
-    float: 'left',
-    width: '46%',
-    marginTop: '10px',
-
+    flex: 1, // Allow this item to grow and fill available space
 };
 
 const buttonStyle = {
@@ -293,44 +280,76 @@ const buttonStyle = {
 const hideDot = {
     height: '25px',
     width: '25px',
-    backgroundcolor: 'black',
     borderRadius: '50%',
     display: 'hidden',
-}
+    cursor: 'pointer',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'white',
+    fontSize: '10px',
+};
 
 const recordingText = {
     float: 'left',
     margin: '3px',
-}
+    whiteSpace: 'nowrap',
+};
 
 const summaryContainerStyle = {
-    alignItems: 'center',
+    display: 'flex',
     flexDirection: 'row',
-}
+    width: '100%',
+    gap: '10px',
+    marginTop: '8px',
+};
 
 const totalSummaryStyle = {
-    width: '54%',
-    float: 'left',
-    marginTop: '10px',
-}
+    flex: 1, // Allow this item to grow and fill available space
+};
 
 const dropDown = {
     width: '100%',
-}
+    marginTop: '5px',
+};
 
 const notHidingStyle = {
-    width: '125px !important',
-    minWidth: '125px !important',
-    height: '50px !important',
-    minHeight: '50px !important',
+    display: 'flex',
     flexDirection: 'column',
-}
+    alignItems: 'center',
+};
+
+const recordingBorderStyle = {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100vw',
+    height: '100vh',
+    zIndex: 2147483646,
+    pointerEvents: 'none',
+    boxSizing: 'border-box',
+    border: '3px solid green', 
+    opacity: '0',
+    transition: 'opacity 0.4s ease-in-out',
+};
+
+const recordingBorderActiveStyle = {
+    opacity: '1',
+};
+
+const RecordingBorder = ({ isRecording }) => {
+    const style = isRecording 
+        ? { ...recordingBorderStyle, ...recordingBorderActiveStyle }
+        : recordingBorderStyle;
+    return <div style={style} />;
+};
 
 const DraggableRecordingBar = ({ isRecording, toggleRecording }) => {
     const buttonText = isRecording ? 'Stop' : 'Start';
     const barColor = isRecording ? 'green' : '#e2711d';
 
     return (
+        <> {/* Use a React Fragment to return multiple elements */}
+        <RecordingBorder isRecording={isRecording} />
         <Draggable
             initialPos={{ x: 0, y: 0 }}
             className='my-draggable'
@@ -339,20 +358,25 @@ const DraggableRecordingBar = ({ isRecording, toggleRecording }) => {
             <div id={"notHidingState"} style={notHidingStyle}>
                 <div style={textStyle}>
                     <div style={recordingText}>
-                        {isRecording ? '🔴 Tab is recording' : 'Tab is not recording'}
+                        {isRecording ? 'Tab is recording' : 'Tab is not recording'}
                     </div>
                     <div style={buttonsContainerStyle}>
                         <button style={buttonStyle} onClick={toggleRecording}>{buttonText}</button>
-                        <button style={buttonStyle} onClick={hideDraggableRecordingBar}>Hide</button>
+                        <button style={buttonStyle} onClick={hideDraggableRecordingBar}>Minimize</button>
                     </div>
                 </div>
 
-                <div style={summaryContainerStyle}>
+                 <div style={summaryContainerStyle}>
+                    {/* Uncomment to show Tab Summary. It will now take up half the space. */}
+                    {/*
                     <div style={tabSummaryStyle}>
                         <button style={buttonStyle} onClick={showTabSummary}>Tab Summary</button>
                         <div style={dropDown} id={"recordedTabNames"}>
                         </div>
                     </div>
+                    */}
+                    
+                    {/* If you comment this out, the other one will take up the full width. */}
                     <div style={totalSummaryStyle}>
                         <button style={buttonStyle} onClick={showHistory}>Total Recording</button>
                         <div style={dropDown} id={"recordedNames"}>
@@ -363,6 +387,7 @@ const DraggableRecordingBar = ({ isRecording, toggleRecording }) => {
             <span id={"dot"} style={hideDot} onClick={unhide}>
             </span>
         </Draggable>
+        </>
     );
 };
 
@@ -370,23 +395,12 @@ async function toggleRecording() {
     const latestTabInfo = await readLocalStorage('latestTab');
     let tabInfo = await readLocalStorage(latestTabInfo.curId.toString());
 
-    // Update the local storage with the new state
-    let before = tabInfo.recording;
-    tabInfo.recording = !before;
-    let after = tabInfo.recording;
-
-    if(before == false && after == true){
-        tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording on');
-    } else if(before == true && after == false){
-        tabInfo.action = replaceTextInParentheses(tabInfo.action, 'recording off');
-    }
-
+    tabInfo.recording = !tabInfo.recording;
+    tabInfo.action = replaceTextInParentheses(tabInfo.action, tabInfo.recording ? 'recording on' : 'recording off');
 
     await writeLocalStorage(latestTabInfo.curId.toString(), tabInfo);
-    
     await chrome.runtime.sendMessage({ action: 'toggleRecording', update: tabInfo, curId: latestTabInfo.curId });
 
-    // Update UI
     updateUI(tabInfo.recording);
 }
 
@@ -416,61 +430,28 @@ async function updateUI(isRecording) {
 window.onload = async function () {
     console.log('Hello from DraggableRecording.js');
 
-    await chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-        if (request.message === "testDraggable") {
-            console.log('testDraggable message received');
-            if (!document.getElementById('draggable-recording')) { // Check if element already exists
-                const mountNode = document.createElement('div');
-                mountNode.id = 'draggable-recording';
-                document.body.appendChild(mountNode);
-
-                // Use createRoot to render the component
-                const root = createRoot(mountNode);
-                root.render(<DraggableRecordingBar />);
-            } else {
-                const draggableRecording = document.getElementById('draggable-recording');
-                draggableRecording.style.display = 'block';
-            }
-        }
-
+    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         if (request.action === "updateRecording") {
             console.log('updateRecording message received');
             updateUI(request.recording);
         }
     });
 
-    // get the current tab
+    // Determine recording status
     const latestTabInfo = await readLocalStorage('latestTab');
-    const tabInfo = await readLocalStorage(latestTabInfo.curId.toString());
-    const isRecording = tabInfo ? tabInfo.recording : false;
+    let isRecording = false;
+    if (latestTabInfo && latestTabInfo.curId) {
+        const tabInfo = await readLocalStorage(latestTabInfo.curId.toString());
+        isRecording = tabInfo ? tabInfo.recording : false;
+    }
+    
+    // Initial UI render
+    await updateUI(isRecording);
 
-    updateUI(isRecording);
+    // Check and apply the hidden state after the UI has rendered
+    const isHidden = await readLocalStorage('draggableIsHidden');
+    if (isHidden) {
+        // Use a small timeout to ensure the DOM elements are available
+        setTimeout(hideDraggableRecordingBar, 100);
+    }
 };
-
-// Sets a key and stores its value into the storage
-async function writeLocalStorage(key, value) {
-    return new Promise((resolve, reject) => {
-        chrome.storage.local.set({ [key]: value }, function () {
-            if (chrome.runtime.lastError) {
-                reject(chrome.runtime.lastError.message);
-            } else {
-                resolve();
-            }
-        });
-    });
-}
-
-// Gets a key value from the storage
-async function readLocalStorage(key) {
-    return new Promise((resolve, reject) => {
-        chrome.storage.local.get([key], function (result) {
-            if (result[key] === undefined) {
-                console.log("Key not found in chrome storage");
-                resolve(undefined);
-            } else {
-                resolve(result[key]);
-            }
-        });
-    });
-}
-

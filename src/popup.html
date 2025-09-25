@@ -16,6 +16,10 @@
         <h2>General Settings</h2>
       </div>
       <div class="card-content">
+        <div class="status-message">
+          <b>Run the node server (`npm run start` in the `webActivities` folder) before other configurations.</b>
+        </div>
+
         <!-- Project Path -->
         <div class="setting-row">
           <label>Project Path</label>
@@ -31,7 +35,7 @@
           <label>Screenshot Capture</label>
           <div class="toggle-container">
             <input type="checkbox" id="screenshotToggle" class="toggle-switch">
-            <span class="toggle-label">Desktop screenshots when switching apps</span>
+            <span class="toggle-label">Desktop screenshots when navigating the browser</span>
           </div>
         </div>
         
@@ -44,14 +48,17 @@
           </div>
         </div>
         
-        <!-- Record All Tabs -->
-        <div class="setting-row">
-          <label>Record All Tabs</label>
-          <div class="toggle-container">
-            <input type="checkbox" id="recordAllToggle" class="toggle-switch">
-            <span class="toggle-label">Enable recording for all tabs in current window</span>
-          </div>
         </div>
+    </div>
+
+    <!-- Window Controls -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Window Controls</h2>
+      </div>
+      <div class="card-content">
+        <div id="windowsList" class="windows-list">
+          </div>
       </div>
     </div>
     
@@ -62,13 +69,12 @@
       </div>
       <div class="card-content">
         <div id="tabsList" class="tabs-list">
-          <!-- Individual tab controls will be dynamically inserted here -->
-        </div>
+          </div>
       </div>
     </div>
     
     <!-- Status Messages -->
-    <div id="statusMessage" class="status-message hidden"></div>
+    <!-- <div id="statusMessage" class="status-message hidden"></div> -->
   </div>
 </body>
 </html>

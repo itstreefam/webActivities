@@ -26,9 +26,9 @@ https://user-images.githubusercontent.com/44308446/172900037-66332410-a1e5-4999-
 
 ## Important notes
 
-<b>``` By default, all tabs recording and screenshots capturing are enabled, so feel free to adjust them in the pop-up tab when you left-click on the pinned extension icon. ```</b>
+<b>``` By default, all tabs recording and screenshots capturing are DISABLED, so you would need to enable them in the pop-up tab when you left-click on the pinned extension icon. ```</b>
 
-The extension is set to finding a free port to run the node server, but user should check to make sure if the free port found matches the one from the extension popup page. This is because Node.js is not meant to be run on the browser or in a chrome extension, so there needs to be one additional level to confirming the port number on the extension's end. Port number can be updated in here if not matched with node server's one. User can also turn recording on or off for certain tabs of their choice.
+The extension is set to finding a free port to run the node server, but user should check to make sure if the free port found matches the one from the extension popup page. This is because Node.js is not meant to be run on the browser or in a chrome extension, so there needs to be one additional level to confirming the port number on the extension's end. Port number can be updated in here if not matched with node server's one. User can also turn recording on or off for certain tabs and now WINDOWS of their choice.
 
 ## Release Notes
 
@@ -46,7 +46,7 @@ Refactored background.js and updated webActivities to try and keep service worke
 
 ### V2.x
 
-Used webpack to bundle the extension. This allows the extension to be integrated with other javascript libraries. => Able to use websocket to send data to node server instead of using http request. Checking app switch is also done to automatically reload localhost if user switches from VS Code to Chrome (This addresses capturing live reloading events). Using node-screenshots API that does not throw error for filepath with empty spaces. Revamped UI where user can now directly adjust directory path and whether they want to have the screen capture enabled or not.
+Used webpack to bundle the extension. This allows the extension to be integrated with other javascript libraries. => Able to use websocket to send data to node server instead of using http request. Checking app switch is also done to automatically reload localhost if user switches from VS Code to Chrome (This addresses capturing live reloading events). Using node-screenshots API that does not throw error for filepath with empty spaces. Revamped UI where user can now directly adjust directory path and whether they want to have the screen capture enabled or not. Added multiple windows recording option and revised the socket connection logics.
 
 ## Contact
 

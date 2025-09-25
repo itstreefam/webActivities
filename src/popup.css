@@ -137,6 +137,12 @@ body {
 }
 
 /* Toggle Switches */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
 .toggle-switch {
   position: relative;
   width: 44px;
@@ -228,4 +234,10 @@ body {
 
 .tabs-list::-webkit-scrollbar-thumb {
   background: #ccc;
+}
+
+.windows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Spacing between window items */
 }
